@@ -454,7 +454,7 @@ function tabSvg(){
   return s;
 }
 function folder(o){
-  return h('a',{class:'folder'+(o.hot?' hot':'')+(o.color==='#111'?' dark':'')+(o.ghost?' fd-new':''),href:o.href||'#',style:`--f:${o.color||'#fff'}`,
+  return h('a',{class:'folder'+(o.hot?' hot':'')+(o.color==='#111'?' dark':'')+(o.ghost?' fd-new':''),href:o.href||'#',style:`--f:${o.color||'#fff'}`,'data-proj':o.proj||null,
       onclick:e=>{ const r = e.currentTarget.getBoundingClientRect(); openFrom = {x:r.left + r.width/2, y:r.top + r.height/2};
         if(o.onclick){ e.preventDefault(); o.onclick(); } }},
     tabSvg(),
@@ -496,12 +496,13 @@ function vScrivania(el){
     ]),
     shelf('Progetti in corso', ps.map((p, i) => {
       const its = open.filter(a => a.progetto_id === p.id).sort((a,b) => W[prioOf(a)] - W[prioOf(b)] || sortA(a,b));
-      return F({href:'#scrivania/progetto/'+p.id, title:p.nome, color:FOLDER_COLORS[i % FOLDER_COLORS.length], items: its.map(a => a.titolo)},
+      return F({proj:p.id, href:'#scrivania/progetto/'+p.id, title:p.nome, color:FOLDER_COLORS[i % FOLDER_COLORS.length], items: its.map(a => a.titolo)},
         its.concat(pr.filter(x => x.progetto_id === p.id)));
     }), {fn:()=>sheetProgetto(), title:'Nuovo progetto'}),
     shelf('Studio', [
       F({href:'#scrivania/generali', title:'Generali', color:'#ffffff', items: orph.map(a => a.titolo)}, orph),
       paused.length ? folder({href:'#progetti', title:'In pausa', color:'#eeeae4', count:paused.length, items: paused.map(p => p.nome), foot:''}) : null,
+      progetti().some(p => p.stato === 'chiuso') ? folder({href:'#progetti', title:'Archivio', color:'#e4ded5', count:progetti().filter(p => p.stato === 'chiuso').length, items: progetti().filter(p => p.stato === 'chiuso').map(p => p.nome), foot:''}) : null,
       folder({href:'#scrivania/fatte', title:'Completate', color:'#f3f1ec', count: att().filter(a => a.fatta).length,
         items: att().filter(a => a.fatta).sort((a,b)=>cmpIt(b.fatta_il,a.fatta_il)).map(a => a.titolo), foot:''})
     ].filter(Boolean))));
@@ -796,28 +797,59 @@ function vSett(el){
 }
 function vProgetti(el){
   const all = progetti();
-  if(all.some(p=>p.stato==='chiuso')) el.append(h('div',{class:'toolbar'},
-    h('button',{class:'link mono',onclick:()=>{showClosed=!showClosed;render();}}, showClosed?'nascondi i chiusi':'mostra i chiusi')));
   if(!all.length) return empty(el,'Ancora nessun progetto. Creane uno con il pulsante +.');
   let i = 0;
-  STATI_PROGETTO.forEach(st => {
-    if(st==='chiuso' && !showClosed) return;
+  ['attivo','in pausa'].forEach(st => {
     const ps = all.filter(p=>p.stato===st);
     if(!ps.length) return;
     el.append(h('section',{class:'grp'},
-      h('h2',null,h('span',{class:'t'}, st==='attivo'?'in corso':st==='in pausa'?'in pausa':'chiusi'), h('span',{class:'n mono'},String(ps.length))),
+      h('h2',null,h('span',{class:'t'}, st==='attivo'?'in corso':'in pausa'), h('span',{class:'n'},ps.length)),
       h('div',{class:'grid'}, ps.map(p => cardProgetto(p, ++i)))));
   });
+  if(all.some(p => p.stato !== 'chiuso')) el.append(h('p',{class:'hint'},'Tasto destro su un progetto (sul telefono tienilo premuto) per metterlo in pausa o archiviarlo.'));
+  const arch = all.filter(p => p.stato === 'chiuso');
+  if(arch.length) el.append(h('section',{class:'grp arch',id:'archivio'},
+    h('h2',null, h('span',{class:'t'},'archivio'), h('span',{class:'n'},arch.length)),
+    h('ul',{class:'arch-l'}, arch.map(p => { const cl = get('clienti', p.cliente_id);
+      return h('li',{'data-proj':p.id},
+        h('a',{class:'arch-n',href:'#scrivania/progetto/'+p.id}, p.nome),
+        h('span',{class:'arch-s'}, [cl && cl.nome, p.comune].filter(Boolean).join(' · ')),
+        h('button',{class:'arch-r',onclick:()=>{ save('progetti',{...p, stato:'attivo'}); toast(p.nome + ': di nuovo in corso'); }},'recupera')); }))));
   const orfane = att().filter(a=>!isDone(a) && (!a.progetto_id || !get('progetti',a.progetto_id))).sort(sortA);
   section(el,'attività senza progetto',orfane);
 }
+/* tasto destro (o dito tenuto premuto) su un progetto: pausa, archivio, dati */
+function projCtx(p, x, y){
+  closeCtx(); if(!p) return;
+  const set = (stato, msg) => { closeCtx(); save('progetti', {...p, stato}); toast(p.nome + ': ' + msg); };
+  const m = h('div',{class:'ctx',role:'menu'},
+    h('div',{class:'ctx-t'}, p.nome),
+    h('div',{class:'ctx-l'}, p.stato === 'attivo' ? 'In corso' : p.stato === 'in pausa' ? 'In pausa' : 'Archiviato'),
+    p.stato === 'attivo' ? h('button',{class:'ctx-i',onclick:()=>set('in pausa','in pausa')},'Metti in pausa') : null,
+    p.stato !== 'attivo' ? h('button',{class:'ctx-i',onclick:()=>set('attivo','di nuovo in corso')}, p.stato === 'chiuso' ? 'Recupera dall’archivio' : 'Riattiva') : null,
+    p.stato !== 'chiuso' ? h('button',{class:'ctx-i',onclick:()=>set('chiuso','archiviato')},'Archivia') : null,
+    h('div',{class:'ctx-sep'}),
+    h('button',{class:'ctx-i',onclick:()=>{ closeCtx(); location.hash = '#scrivania/progetto/' + p.id; }},'Apri la cartella'),
+    h('button',{class:'ctx-i',onclick:()=>{ closeCtx(); sheetProgetto(p); }},'Modifica i dati…'));
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
+  m.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+}
+document.addEventListener('contextmenu', e => { const t = e.target.closest('[data-proj]'); if(!t) return; e.preventDefault(); projCtx(get('progetti', t.dataset.proj), e.clientX, e.clientY); });
+let projLp = null;
+document.addEventListener('pointerdown', e => { const t = e.target.closest('[data-proj]'); if(!t || e.pointerType === 'mouse') return;
+  const x = e.clientX, y = e.clientY;
+  projLp = {x, y, t: setTimeout(() => { projLp = null; justDragged = true; setTimeout(() => justDragged = false, 400); projCtx(get('progetti', t.dataset.proj), x, y); }, 500)}; });
+['pointerup','pointercancel'].forEach(ev => document.addEventListener(ev, () => { if(projLp){ clearTimeout(projLp.t); projLp = null; } }));
+document.addEventListener('pointermove', e => { if(projLp && Math.hypot(e.clientX - projLp.x, e.clientY - projLp.y) > 8){ clearTimeout(projLp.t); projLp = null; } });
 function cardProgetto(p, i){
   const cl = get('clienti',p.cliente_id);
   const aperte = list('attivita').filter(a=>a.progetto_id===p.id && !isDone(a));
   const prat = list('pratiche').filter(x=>x.progetto_id===p.id && x.stato!=='conclusa');
   const prox = aperte.concat(prat).map(x=>x.scadenza).filter(Boolean).sort()[0];
   const cats = [...new Set(aperte.map(a=>CATMAP[a.categoria]?a.categoria:'stu'))];
-  return h('a',{class:'tile'+(p.stato!=='attivo'?' dim':''),href:'#scrivania/progetto/'+p.id},
+  return h('a',{class:'tile'+(p.stato!=='attivo'?' dim':''),href:'#scrivania/progetto/'+p.id,'data-proj':p.id},
     h('div',{class:'tile-top'}, h('div',{class:'nm'},p.nome), h('div',{class:'sub'}, [cl && cl.nome, p.comune].filter(Boolean).join(' · ') || ' ')),
     h('div',{class:'dots'}, cats.map(c => h('span',{class:'dot',style:catStyle(c),title:CATMAP[c].name}))),
     h('div',{class:'tile-foot mono'},
@@ -1150,7 +1182,7 @@ function sheetProgetto(p){
   const comune = h('input',{type:'text',value:d.comune,placeholder:'comune',list:'dl-comuni'});
   const dlc = h('datalist',{id:'dl-comuni'},[...new Set(list('progetti').map(x=>x.comune).filter(Boolean))].sort(cmpIt).map(c=>h('option',{value:c})));
   const ind = txt(d.indirizzo,'via e civico');
-  const stato = selectOf(STATI_PROGETTO.map(s=>({value:s,label:s})), d.stato);
+  const stato = selectOf(STATI_PROGETTO.map(s=>({value:s,label:s==='chiuso'?'archiviato':s==='attivo'?'in corso':s})), d.stato);
   const note = h('textarea',{placeholder:'note (dati catastali, accordi, riferimenti…)'}); note.value = d.note||'';
   const doSave = async () => {
     const v = nome.value.trim(); if(!v){ nome.focus(); return; }
