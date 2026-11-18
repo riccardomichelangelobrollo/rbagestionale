@@ -508,9 +508,15 @@ function vScrivania(el){
     ].filter(Boolean))));
 }
 function vGenerali(el){
-  const its = att().filter(a => !isDone(a) && (!a.progetto_id || !get('progetti', a.progetto_id))).sort(sortA);
-  section(el, 'Da fare', its.filter(a => !isWaiting(a)), {keep:true, emptyText:'Niente in sospeso.'});
-  section(el, 'In attesa di altri', its.filter(isWaiting));
+  const its = att().filter(a => !a.ogni_giorno && (!a.progetto_id || !get('progetti', a.progetto_id)));
+  const W = {alta:0, media:1, bassa:2};
+  const sc = its.filter(x => !isDone(x) && x.scadenza).sort(sortA);
+  section(el,'scadenze',sc,{keep:true,emptyText:'Nessuna scadenza.',row:rowScad,late:sc.some(x=>diff(x.scadenza)<0),
+    add:{title:'Nuova scadenza', fn:()=>sheetAttivita(null,{progetto_id:null, scadenza:addDays(today(),7)},'nuova scadenza')}});
+  section(el,'da fare',its.filter(x => !isDone(x) && !isWaiting(x) && !x.scadenza).sort((x,y) => W[prioOf(x)] - W[prioOf(y)] || sortA(x,y)),
+    {keep:true, emptyText:'Niente in sospeso.', add:{title:'Nuova attività', fn:()=>sheetAttivita(null,{progetto_id:null})}});
+  section(el,'in attesa di altri',its.filter(x => isWaiting(x) && !x.scadenza).sort(sortA));
+  section(el,'fatte',its.filter(x => x.fatta).sort((x,y)=>cmpIt(y.fatta_il,x.fatta_il)).slice(0,30));
 }
 function deskFolderInfo(){
   if(route.view === 'progetto'){ const p = get('progetti', route.id); const i = progetti().filter(x=>x.stato==='attivo').indexOf(p);
@@ -534,7 +540,7 @@ function deskOverlay(){
       h('header',{class:'fo-h'},
         h('div',{style:'min-width:0'}, h('div',{class:'fo-t'}, f.title)),
         h('div',{class:'fo-a'},
-          ['oggi','settimana','attesa','generali'].includes(route.view) ? h('button',{class:'btn sm pri',onclick:()=>sheetAttivita(null, route.view==='progetto' ? {progetto_id:route.id} : route.view==='oggi' ? {in_oggi:today()} : null)},'+ Attività') : null,
+          ['oggi','settimana','attesa'].includes(route.view) ? h('button',{class:'btn sm pri',onclick:()=>sheetAttivita(null, route.view==='progetto' ? {progetto_id:route.id} : route.view==='oggi' ? {in_oggi:today()} : null)},'+ Attività') : null,
         route.view === 'pratiche' ? h('button',{class:'btn sm',onclick:()=>sheetPratica()},'+ Pratica') : null,
         route.view === 'progetto' ? h('button',{class:'btn sm'+(showInfo?' on':''),onclick:()=>{ showInfo = !showInfo; render(); }},'Dati del progetto') : null,
           h('button',{class:'x',onclick:closeDesk,'aria-label':'Chiudi'},'×'))),
