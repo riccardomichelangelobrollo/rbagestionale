@@ -1,0 +1,20 @@
+{
+  "name": "RBA · Gestionale dello studio",
+  "short_name": "RBA",
+  "description": "Gestionale dello studio Riccardo Brollo Architetto",
+  "lang": "it",
+  "start_url": "./#scrivania",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fbf8f5",
+  "theme_color": "#fbf8f5",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Mappa", "url": "./#mappa", "icons": [{ "src": "img/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Progetti", "url": "./#progetti", "icons": [{ "src": "img/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

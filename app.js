@@ -2,6 +2,8 @@
    Un solo file, nessuna compilazione: si modifica e si ripubblica. */
 (function(){
 "use strict";
+/* installabile come app (finestra propria, senza barra degli indirizzi) */
+if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(()=>{});
 const CFG = window.GESTIONALE_CONFIG || {};
 const $ = s => document.querySelector(s);
 
