@@ -117,3 +117,11 @@ Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiorna
 - La cartella **Generali** (attività senza progetto) ha la stessa struttura di quella di un progetto: Scadenze (con +, attività collegabili), Da fare (con +), In attesa di altri, Fatte.
 - Mappa: allontanando lo zoom, i nomi dei progetti (e il loro quadratino) crescono in proporzione (`--hs` = max(1, 0,9 / zoom)), così restano leggibili; le attività no.
 - **Riordinare le cartelle della scrivania** trascinandole col mouse dentro il loro ripiano. Progetti: colonna `progetti.ordine` (condivisa con lo studio); il colore della cartella dipende dall'ordine alfabetico, quindi non cambia spostandola. La giornata e Studio: ordine salvato nel browser (`ord-giornata`, `ord-studio`). Sul telefono: pressione lunga su un progetto → "Sposta prima" / "Sposta dopo".
+
+### Scadenze/appuntamenti ≠ cose da fare (18/11/2026)
+- Colonna `attivita.tipo`: `'attivita'` = **cosa da fare** (si spunta, può avere una data entro cui farla, priorità, attesa…); `'scadenza'` = **scadenza o appuntamento** già fissato (incontro, sopralluogo, consegna: succede a una data, non si spunta; passata la data va tra le "scadenze passate").
+- Helper: `isEv(a)`, `att()` (solo cose da fare), `eventi()`, `eventiFuturi()`, `ordineDaFare` (prima quelle con data, poi per priorità).
+- Scheda (`sheetAttivita`): selettore in alto "Cosa da fare | Scadenza o appuntamento"; per gli appuntamenti si nascondono priorità, "per la scadenza…", oggi/ogni giorno, attesa; la data è obbligatoria.
+- Cartella di progetto e Generali (`cartellaLavoro`): **Scadenze** (appuntamenti futuri + scadenze delle pratiche, con le cose da fare collegate come etichette e "+"), **Da fare** (tutte le cose da fare), In attesa, **Scadenze passate**, Fatte.
+- Le cose da fare si collegano solo a scadenze/appuntamenti (campo "per la scadenza…").
+- Oggi: appuntamenti con orario nella timeline (`.tl-ev`), senza orario in "Appuntamenti e scadenze di oggi". Settimana, calendario (`.cal-e`), file .ics e mappa (`.mp.ev`, etichetta bianca con data) li mostrano con un aspetto proprio. I conteggi delle cartelle contano solo le cose da fare.

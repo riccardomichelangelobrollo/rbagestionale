@@ -102,6 +102,11 @@ create index if not exists attivita_per_scadenza_idx on public.attivita(per_scad
 -- ordine dei progetti sulla scrivania (trascinando le cartelle): aggiunto il 18/11/2026
 alter table public.progetti add column if not exists ordine double precision;
 
+-- tipo: 'attivita' = cosa da fare (si spunta); 'scadenza' = scadenza o appuntamento fissato (succede a una data): aggiunto il 18/11/2026
+alter table public.attivita add column if not exists tipo text not null default 'attivita';
+alter table public.attivita drop constraint if exists attivita_tipo_check;
+alter table public.attivita add constraint attivita_tipo_check check (tipo in ('attivita','scadenza'));
+
 create index if not exists attivita_progetto_idx on public.attivita(progetto_id);
 create index if not exists attivita_assegnata_idx on public.attivita(assegnata_a);
 create index if not exists pratiche_progetto_idx on public.pratiche(progetto_id);
