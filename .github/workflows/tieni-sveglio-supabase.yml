@@ -1,0 +1,18 @@
+# Una richiesta al database ogni tre giorni, perché Supabase (piano gratuito)
+# non metta in pausa il progetto se lo studio non usa il gestionale per una settimana.
+# Legge indirizzo e chiave pubblica da config.js: non serve configurare nulla.
+name: tieni sveglio Supabase
+on:
+  schedule:
+    - cron: "17 6 */3 * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: richiesta al database
+        run: |
+          URL=$(grep -oP 'supabaseUrl:\s*"\K[^"]+' config.js)
+          KEY=$(grep -oP 'supabaseKey:\s*"\K[^"]+' config.js)
+          curl -sS -o /dev/null -w "risposta %{http_code}\n" "$URL/rest/v1/membri?select=id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
