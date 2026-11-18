@@ -175,7 +175,7 @@ const ICONS = {
 function icon(n){ const s = h('span',{class:'ico','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">'+ICONS[n]+'</svg>'; return s; }
 const ARROW = () => { const s = h('span',{class:'arr','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 21 L21 3 M8 3 H21 V16"/></svg>'; return s; };
 function logo(){
-  return h('a',{class:'logo',href:'#oggi','aria-label':'Riccardo Brollo Architetto · gestionale'},
+  return h('a',{class:'logo',href:'#scrivania','aria-label':'Scrivania'},
     h('img',{src:'img/spirale.png',alt:'',width:'34',height:'34'}), h('span',{class:'rba'},'RBA'));
 }
 let counts = {}, lateCount = 0, pendingRender = false;
@@ -213,7 +213,7 @@ function render(){
   const pageView = route.desk ? 'scrivania' : route.view;
   const prevOv = $('.fo'); if(prevOv) ovScroll = prevOv.scrollTop;
   let n = 0;
-  const side = h('aside',{class:'side',onclick:e=>{ if(e.target.closest('a.nl')) setNav(false); }},
+  const side = h('aside',{class:'side',onclick:e=>{ if(e.target.closest('a.nl,a.logo')) setNav(false); }},
     h('div',{class:'side-top'}, logo(), h('button',{class:'x',onclick:()=>setNav(false),'aria-label':'Chiudi il menu'},'×')),
     h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, g ? h('div',{class:'ng-t mono'},g) : null,
       ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id,title:NAV_HINT[id]},
