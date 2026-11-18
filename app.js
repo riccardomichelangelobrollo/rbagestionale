@@ -220,17 +220,17 @@ function render(){
   const prevOv = $('.fo'); if(prevOv) ovScroll = prevOv.scrollTop;
   let n = 0;
   // menu: una riga in basso (computer); logo e "Menu" in basso (telefono), che apre le voci come sul sito
-  const VOCI = [['mappa','Mappa'],['progetti','Progetti'],['pratiche','Pratiche'],['clienti','Clienti'],['studio','Persone']];
+  const VOCI = [['mappa','Mappa'],['progetti','Progetti'],['pratiche','Pratiche'],['clienti','Clienti']];
   const dataBreve = new Date().toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}).replace('.','');
   const bbar = h('nav',{class:'bbar','aria-label':'Menu'},
     h('span',{class:'bb-logo'}, logo(), lateCount ? h('i',{class:'bb-dot',title:'Qualcosa è scaduto'}) : null),
     h('div',{class:'bb-items'}, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:'bb-i'+(active===id?' on':''), title:NAV_HINT[id]||null}, h('span',null,lab), ARROW()))),
     h('span',{class:'bb-d'}, dataBreve),
-    h('button',{class:'bb-i bb-out',onclick:logout,title:nomeMembro(me)}, h('span',null,'Esci')),
+    h('button',{class:'bb-acc'+(active==='studio'?' on':''),title:nomeMembro(me),'aria-label':'Account',onclick:e=>{ e.stopPropagation(); accPop(e.currentTarget); }}, iniziali(me).toUpperCase()),
     h('button',{class:'bb-menu','aria-expanded':String(navOpen),onclick:()=>setNav(!navOpen)}, h('span',{class:'m-open'},'Menu'), h('span',{class:'m-close'},'Chiudi')));
   const mpanel = h('div',{class:'mpanel',onclick:e=>{ if(e.target.closest('a')) setNav(false); }},
     h('nav',null, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:active===id?'on':null}, lab, ARROW()))),
-    h('div',{class:'mp-foot'}, h('span',null, dataBreve + ' · ' + nomeMembro(me)), h('button',{class:'link',onclick:()=>{ setNav(false); logout(); }},'Esci')));
+    h('div',{class:'mp-foot'}, h('span',null, dataBreve + ' · ' + nomeMembro(me)), h('a',{class:'link',href:'#studio'},'persone'), h('button',{class:'link',onclick:()=>{ setNav(false); logout(); }},'esci')));
   let title = LABEL[pageView] || '', eyebrow = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   if(pageView==='progetto'){ const p = get('progetti',route.id); title = p ? p.nome : 'progetto'; eyebrow = h('a',{href:'#progetti'},'← progetti'); }
   const content = h('div',{class:'content'+(['oggi','scrivania','calendario'].includes(pageView)?' wide':'')+(pageView==='mappa'?' full':'')},
@@ -261,6 +261,19 @@ function render(){
 }
 let renderKeepScroll = true;
 let navOpen = false;
+function closeAcc(){ const p = $('.acc-pop'); if(p) p.remove(); }
+function accPop(btn){
+  if($('.acc-pop')) return closeAcc();
+  const r = btn.getBoundingClientRect();
+  const pop = h('div',{class:'acc-pop',style:`right:${Math.max(8, innerWidth - r.right)}px;bottom:${innerHeight - r.top + 10}px`},
+    h('div',{class:'acc-n'}, nomeMembro(me)), h('div',{class:'acc-e'}, me.email),
+    h('div',{class:'acc-r'}, me.ruolo === 'admin' ? 'amministratore' : 'membro', ' · ', syncText()),
+    h('a',{class:'acc-i',href:'#studio',onclick:closeAcc}, 'persone e accessi', ARROW()),
+    h('button',{class:'acc-i',onclick:()=>{ closeAcc(); logout(); }}, 'esci'));
+  document.body.append(pop);
+}
+document.addEventListener('pointerdown', e => { if(!e.target.closest('.acc-pop,.bb-acc')) closeAcc(); }, true);
+addEventListener('hashchange', closeAcc);
 function setNav(v){ navOpen = v; document.body.classList.toggle('nav-open', v); const b = $('.bb-menu'); if(b) b.setAttribute('aria-expanded', String(v)); }
 const VIEWFN = {scrivania:vScrivania, oggi:vOggi, mappa:vMappa, settimana:vSett, progetti:vProgetti, progetto:vProgetto, attesa:vAttesa, pratiche:vPratiche, clienti:vClienti, fatte:vFatte, studio:vStudio, generali:vGenerali, calendario:vCalendario};
 function sheetAltro(){
@@ -603,7 +616,7 @@ function ctxMenu(a, x, y){
 }
 document.addEventListener('pointerdown', e => { if(!e.target.closest('.ctx')) closeCtx(); }, true);
 addEventListener('scroll', closeCtx, true);
-addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('.ctx')) return closeCtx(); if(navOpen) return setNav(false); if(ov.hidden && route.desk && route.view !== 'scrivania') closeDesk(); } });
+addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('.acc-pop')) return closeAcc(); if($('.ctx')) return closeCtx(); if(navOpen) return setNav(false); if(ov.hidden && route.desk && route.view !== 'scrivania') closeDesk(); } });
 
 /* ----- mappa: piano libero, progetti come nodi, attività come etichette sfumate ----- */
 let mapDragging = false;
@@ -840,9 +853,9 @@ function vProgetto(el){
       .concat(prat.filter(x=>x.stato!=='conclusa' && x.scadenza).map(asP)).sort(sortA);
     section(el,'scadenze',sc,{keep:true,emptyText:'Nessuna scadenza.',row:rowScad,late:sc.some(x=>diff(x.scadenza)<0),
       add:{title:'Nuova scadenza', fn:()=>sheetAttivita(null,{progetto_id:p.id, scadenza:addDays(today(),7)},'nuova scadenza')}});
-    section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)&&!x.scadenza&&!parentOf(x)).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'Nessuna attività senza data.',
+    section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)&&!x.scadenza).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'Nessuna attività senza data.',
       add:{title:'Nuova attività', fn:()=>sheetAttivita(null,{progetto_id:p.id})}});
-    section(el,'in attesa di altri',a.filter(x=>isWaiting(x)&&!x.scadenza&&!parentOf(x)).sort(sortA));
+    section(el,'in attesa di altri',a.filter(x=>isWaiting(x)&&!x.scadenza).sort(sortA));
     section(el,'fatte',a.filter(x=>x.fatta).sort((x,y)=>cmpIt(y.fatta_il,x.fatta_il)).slice(0,30));
     return;
   }
@@ -871,7 +884,8 @@ function rowScad(x){
   if(isP || !aperti.length) return row;
   const W = {alta:0, media:1, bassa:2};
   return h('div',{class:'scad-g'}, row,
-    h('div',{class:'scad-f'}, aperti.sort((p,q) => W[prioOf(p)] - W[prioOf(q)] || sortA(p,q)).map(c => rowAtt(c, {compact:true, inScad:true}))));
+    h('ul',{class:'scad-f'}, aperti.sort((p,q) => W[prioOf(p)] - W[prioOf(q)] || sortA(p,q)).map(c =>
+      h('li',{class:'p-'+prioOf(c)+(isWaiting(c)?' wait':''),style:catStyle(CATMAP[c.categoria]?c.categoria:'stu'),onclick:()=>sheetAttivita(c)}, c.titolo))));
 }
 function vAttesa(el){
   const items = att().filter(isWaiting).sort(sortA);
