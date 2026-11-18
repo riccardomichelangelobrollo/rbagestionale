@@ -366,7 +366,8 @@ function nuovaAttivita(p){
 function section(el, title, items, opts={}){
   if(!items.length && !opts.keep) return;
   const box = h('section',{class:'grp'+(opts.late?' late':'')});
-  box.append(h('h2',null, h('span',{class:'t'},title), items.length ? h('span',{class:'n'},items.length) : null, opts.acts||null));
+  box.append(h('h2',null, h('span',{class:'t'},title), items.length ? h('span',{class:'n'},items.length) : null,
+    opts.add ? h('button',{class:'shelf-add',title:opts.add.title,'aria-label':opts.add.title,onclick:opts.add.fn},'+') : null, opts.acts||null));
   const lst = h('div',{class: items.length && items.every(x=>x.__pratica) && !opts.row ? 'plist' : 'list'});
   if(!items.length && opts.emptyText) lst.append(h('div',{class:'empty sm'},opts.emptyText));
   items.forEach(x => lst.append(opts.row ? opts.row(x) : x.__pratica ? rowPratica(x.p) : rowAtt(x)));
@@ -514,8 +515,7 @@ function deskOverlay(){
       h('header',{class:'fo-h'},
         h('div',{style:'min-width:0'}, h('div',{class:'fo-t'}, f.title)),
         h('div',{class:'fo-a'},
-          ['oggi','settimana','attesa','generali','progetto'].includes(route.view) ? h('button',{class:'btn sm pri',onclick:()=>sheetAttivita(null, route.view==='progetto' ? {progetto_id:route.id} : route.view==='oggi' ? {in_oggi:today()} : null)},'+ Attività') : null,
-        route.view === 'progetto' ? h('button',{class:'btn sm',onclick:()=>sheetAttivita(null,{progetto_id:route.id, scadenza:addDays(today(),7)},'nuova scadenza')},'+ Scadenza') : null,
+          ['oggi','settimana','attesa','generali'].includes(route.view) ? h('button',{class:'btn sm pri',onclick:()=>sheetAttivita(null, route.view==='progetto' ? {progetto_id:route.id} : route.view==='oggi' ? {in_oggi:today()} : null)},'+ Attività') : null,
         route.view === 'pratiche' ? h('button',{class:'btn sm',onclick:()=>sheetPratica()},'+ Pratica') : null,
         route.view === 'progetto' ? h('button',{class:'btn sm'+(showInfo?' on':''),onclick:()=>{ showInfo = !showInfo; render(); }},'Dati del progetto') : null,
           h('button',{class:'x',onclick:closeDesk,'aria-label':'Chiudi'},'×'))),
@@ -823,8 +823,10 @@ function vProgetto(el){
     if(showInfo) dati();
     const sc = a.filter(x=>!isDone(x) && !x.ogni_giorno && x.scadenza)
       .concat(prat.filter(x=>x.stato!=='conclusa' && x.scadenza).map(asP)).sort(sortA);
-    section(el,'scadenze',sc,{keep:true,emptyText:'Nessuna scadenza: aggiungila con “+ Scadenza”.',row:rowScad,late:sc.some(x=>diff(x.scadenza)<0)});
-    section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)&&!x.scadenza).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'Nessuna attività senza data.'});
+    section(el,'scadenze',sc,{keep:true,emptyText:'Nessuna scadenza.',row:rowScad,late:sc.some(x=>diff(x.scadenza)<0),
+      add:{title:'Nuova scadenza', fn:()=>sheetAttivita(null,{progetto_id:p.id, scadenza:addDays(today(),7)},'nuova scadenza')}});
+    section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)&&!x.scadenza).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'Nessuna attività senza data.',
+      add:{title:'Nuova attività', fn:()=>sheetAttivita(null,{progetto_id:p.id})}});
     section(el,'in attesa di altri',a.filter(x=>isWaiting(x)&&!x.scadenza).sort(sortA));
     section(el,'fatte',a.filter(x=>x.fatta).sort((x,y)=>cmpIt(y.fatta_il,x.fatta_il)).slice(0,30));
     return;
