@@ -502,7 +502,6 @@ function vScrivania(el){
     shelf('Studio', [
       F({href:'#scrivania/generali', title:'Generali', color:'#ffffff', items: orph.map(a => a.titolo)}, orph),
       paused.length ? folder({href:'#progetti', title:'In pausa', color:'#eeeae4', count:paused.length, items: paused.map(p => p.nome), foot:''}) : null,
-      progetti().some(p => p.stato === 'chiuso') ? folder({href:'#progetti', title:'Archivio', color:'#e4ded5', count:progetti().filter(p => p.stato === 'chiuso').length, items: progetti().filter(p => p.stato === 'chiuso').map(p => p.nome), foot:''}) : null,
       folder({href:'#scrivania/fatte', title:'Completate', color:'#f3f1ec', count: att().filter(a => a.fatta).length,
         items: att().filter(a => a.fatta).sort((a,b)=>cmpIt(b.fatta_il,a.fatta_il)).map(a => a.titolo), foot:''})
     ].filter(Boolean))));
