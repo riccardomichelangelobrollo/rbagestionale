@@ -64,7 +64,7 @@ const catStyle = id => `--c:var(--c-${id});--cs:var(--c-${id}-s);--ci:var(--c-${
 let toastT;
 function toast(msg){ msg = cap(String(msg)); let t = $('.toast'); if(!t){ t = h('div',{class:'toast'}); document.body.append(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(()=>t.remove(), 2600); }
 const cap = s => s ? s.charAt(0).toLocaleUpperCase('it-IT') + s.slice(1) : s;
-const CAP_SEL = '.fd-due,.cal-m,.cal-wd,.cal-hint,.tbar-d,.fd-t,.fd-s,.fd-l li,.fo-t,.fo-s,.ctx-t,.ctx-l,.ctx-i,.shelf .acts,h1,h2 .t,h3,.nl-t,.nl-h,.ng-t,.chip,.btn,.tab span,.scope button,.stat-l,.eyebrow,.acts,.acts button,.f > label,.f > .lb,.tog,.qd button,.link,.meta .cat,.meta span,.tt,.mp-t,.mp-m,.empty,.side-app,.kv .k,.pill,.seg button,.quick button,.me-r,.waitline span,.waitline button,.cnt span,.prat-st,.prat-m .mono,.prat-dl,.tile-foot .due,.card .sub,.hub-l span,.map-key span,.prio-t,.login p,.confirm,.day,.sub,option';
+const CAP_SEL = '.mp-foot span,.fd-due,.cal-m,.cal-wd,.cal-hint,.tbar-d,.fd-t,.fd-s,.fd-l li,.fo-t,.fo-s,.ctx-t,.ctx-l,.ctx-i,.shelf .acts,h1,h2 .t,h3,.nl-t,.nl-h,.ng-t,.chip,.btn,.tab span,.scope button,.stat-l,.eyebrow,.acts,.acts button,.f > label,.f > .lb,.tog,.qd button,.link,.meta .cat,.meta span,.tt,.mp-t,.mp-m,.empty,.side-app,.kv .k,.pill,.seg button,.quick button,.me-r,.waitline span,.waitline button,.cnt span,.prat-st,.prat-m .mono,.prat-dl,.tile-foot .due,.card .sub,.hub-l span,.map-key span,.prio-t,.login p,.confirm,.day,.sub,option';
 function capAll(root){
   root.querySelectorAll(CAP_SEL).forEach(el => {
     const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -219,19 +219,23 @@ function render(){
   const pageView = route.desk ? 'scrivania' : route.view;
   const prevOv = $('.fo'); if(prevOv) ovScroll = prevOv.scrollTop;
   let n = 0;
-  const side = h('aside',{class:'side',onclick:e=>{ if(e.target.closest('a.nl,a.logo')) setNav(false); }},
-    h('div',{class:'side-top'}, logo(), h('button',{class:'x',onclick:()=>setNav(false),'aria-label':'Chiudi il menu'},'×')),
-    h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, g ? h('div',{class:'ng-t mono'},g) : null,
-      ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id,title:NAV_HINT[id]},
-        h('span',{class:'nl-t'}, LABEL[id], h('span',{class:'nl-h'},NAV_HINT[id])),
-        counts[id] ? h('span',{class:'nl-c mono'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null))))),
-    h('div',{class:'side-foot'}, meBox(), h('button',{class:'link mono',onclick:logout},'esci')));
+  // menu: una riga in basso (computer); logo e "Menu" in basso (telefono), che apre le voci come sul sito
+  const VOCI = [['scrivania','Scrivania'],['mappa','Mappa'],['calendario','Calendario'],['progetti','Progetti'],['pratiche','Pratiche'],['clienti','Clienti'],['studio','Persone']];
+  const dataBreve = new Date().toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}).replace('.','');
+  const bbar = h('nav',{class:'bbar','aria-label':'Menu'},
+    logo(),
+    h('div',{class:'bb-items'}, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:'bb-i'+(active===id?' on':''), title:NAV_HINT[id]||null}, lab,
+      id === 'scrivania' && lateCount ? h('i',{class:'bb-dot',title:'Qualcosa è scaduto'}) : null))),
+    h('span',{class:'bb-d'}, dataBreve),
+    h('button',{class:'bb-i bb-out',onclick:logout,title:nomeMembro(me)},'Esci'),
+    h('button',{class:'bb-menu','aria-expanded':String(navOpen),onclick:()=>setNav(!navOpen)}, h('span',{class:'m-open'},'Menu'), h('span',{class:'m-close'},'Chiudi')));
+  const mpanel = h('div',{class:'mpanel',onclick:e=>{ if(e.target.closest('a')) setNav(false); }},
+    h('nav',null, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:active===id?'on':null}, lab, ARROW()))),
+    h('div',{class:'mp-foot'}, h('span',null, dataBreve + ' · ' + nomeMembro(me)), h('button',{class:'link',onclick:()=>{ setNav(false); logout(); }},'Esci')));
   let title = LABEL[pageView] || '', eyebrow = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   if(pageView==='progetto'){ const p = get('progetti',route.id); title = p ? p.nome : 'progetto'; eyebrow = h('a',{href:'#progetti'},'← progetti'); }
   const content = h('div',{class:'content'+(['oggi','scrivania','calendario'].includes(pageView)?' wide':'')+(pageView==='mappa'?' full':'')},
-    h('header',{class:'tbar'},
-      logo(),
-      h('span',{class:'tbar-d mono'}, new Date().toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}))));
+  );
   if(!['scrivania','mappa'].includes(pageView)) content.append(
     h('header',{class:'top'+(pageView==='progetto'?' long':'')},
       h('div',{class:'top-t'}, h('h1',null,title)),
@@ -248,8 +252,7 @@ function render(){
   const curView = route.view; if(route.desk) route.view = 'scrivania';
   VIEWFN[route.view](main);
   route.view = curView;
-  app.append(h('button',{class:'menu-strip',onclick:()=>setNav(true),'aria-label':'Apri il menu'}, h('span',null,'Menu')),
-    h('div',{class:'shell'}, side, content), h('div',{class:'nav-scrim',onclick:()=>setNav(false)}));
+  app.append(h('div',{class:'shell'}, content), h('div',{class:'nav-scrim',onclick:()=>setNav(false)}), mpanel, bbar);
   document.body.classList.toggle('nav-open', navOpen);
   document.body.dataset.view = pageView;
   if(route.desk && route.view !== 'scrivania'){ app.append(deskOverlay()); const fo = $('.fo'); if(fo) fo.scrollTop = ovScroll; document.body.classList.add('ov-open'); } else document.body.classList.remove('ov-open');
@@ -259,7 +262,7 @@ function render(){
 }
 let renderKeepScroll = true;
 let navOpen = false;
-function setNav(v){ navOpen = v; document.body.classList.toggle('nav-open', v); }
+function setNav(v){ navOpen = v; document.body.classList.toggle('nav-open', v); const b = $('.bb-menu'); if(b) b.setAttribute('aria-expanded', String(v)); }
 const VIEWFN = {scrivania:vScrivania, oggi:vOggi, mappa:vMappa, settimana:vSett, progetti:vProgetti, progetto:vProgetto, attesa:vAttesa, pratiche:vPratiche, clienti:vClienti, fatte:vFatte, studio:vStudio, generali:vGenerali, calendario:vCalendario};
 function sheetAltro(){
   openSheet(h('h3',null,'menu'),
@@ -601,7 +604,7 @@ function ctxMenu(a, x, y){
 }
 document.addEventListener('pointerdown', e => { if(!e.target.closest('.ctx')) closeCtx(); }, true);
 addEventListener('scroll', closeCtx, true);
-addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('.ctx')) return closeCtx(); if(ov.hidden && route.desk && route.view !== 'scrivania') closeDesk(); } });
+addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('.ctx')) return closeCtx(); if(navOpen) return setNav(false); if(ov.hidden && route.desk && route.view !== 'scrivania') closeDesk(); } });
 
 /* ----- mappa: piano libero, progetti come nodi, attività come etichette sfumate ----- */
 let mapDragging = false;
@@ -621,7 +624,7 @@ function vMappa(el){
   const wrap = h('div',{class:'mapwrap'}, filt);
   el.append(wrap);
   if(!groups.length){ wrap.append(h('div',{class:'empty'},'Nessuna attività con questa priorità.')); return; }
-  const W = Math.max(300, innerWidth - (innerWidth >= 900 ? 82 : 18)), Hv = Math.max(420, innerHeight - 92);
+  const W = Math.max(300, innerWidth - (innerWidth >= 900 ? 82 : 2)), Hv = Math.max(380, innerHeight - (innerWidth >= 900 ? 100 : 96));
   const small = W < 700, K = 1, ASP = Math.sqrt(Math.max(1, W / Hv));
   const SZ = {alta:{fs:19,mw:230,px:20,py:11}, media:{fs:14,mw:190,px:14,py:7}, bassa:{fs:12,mw:160,px:10,py:4}};
   const box = a => { const z = SZ[prioOf(a)], t = (a.titolo||'').length * z.fs * .54, inner = z.mw - 2*z.px;
