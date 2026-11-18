@@ -618,7 +618,7 @@ function vMappa(el){
   const wrap = h('div',{class:'mapwrap'}, filt);
   el.append(wrap);
   if(!groups.length){ wrap.append(h('div',{class:'empty'},'Nessuna attività con questa priorità.')); return; }
-  const W = Math.max(300, innerWidth - (innerWidth >= 900 ? 122 : 18)), Hv = Math.max(420, innerHeight - 92);
+  const W = Math.max(300, innerWidth - (innerWidth >= 900 ? 82 : 18)), Hv = Math.max(420, innerHeight - 92);
   const small = W < 700, K = small ? .72 : 1;
   const SZ = small ? {alta:{fs:15,mw:170,px:14,py:8}, media:{fs:12.5,mw:140,px:11,py:6}, bassa:{fs:11,mw:120,px:9,py:4}}
                    : {alta:{fs:19,mw:230,px:20,py:11}, media:{fs:14,mw:190,px:14,py:7}, bassa:{fs:12,mw:160,px:10,py:4}};
