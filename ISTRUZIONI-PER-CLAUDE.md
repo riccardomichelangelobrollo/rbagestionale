@@ -69,3 +69,10 @@ Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiorna
 - **oggi**: riepilogo a blocchi; colonna "da sistemare" (le attività scritte al mattino, riordinabili) e **timeline** 07:00–21:00 a mezz'ore. Trascinamento con mouse o con il dito sulla maniglia puntinata (`draggable`, `onDrop`). Campi `ora_oggi` (HH:MM, valido solo se `in_oggi` = oggi) e `ordine`.
 - **mappa**: foglio quadrettato con un riquadro per progetto e cartiglio; le attività sono blocchi colorati per categoria, grandi secondo la **priorità** (`priorita`: bassa/media/alta). Clic sull'etichetta di priorità per cambiarla, trascinamento su un altro progetto per spostarla.
 - `schema.sql` aggiornato con `priorita`, `ora_oggi`, `ordine` (già eseguito sul database).
+
+### Revisione successiva (stessa giornata)
+- Maiuscola iniziale ovunque: `capAll()` passa sul DOM dopo ogni render e apertura di scheda (selettori in `CAP_SEL`), `cap()` per i messaggi.
+- Times di nuovo per nomi propri e racconto (progetti, clienti, data del giorno, note, liste vuote); Inter per l'interfaccia.
+- Attività con lo sfondo pastello della categoria su tutta la riga (non più striscia laterale). Pratiche come schede-documento (`rowPratica`, classe `.prat`, con data di scadenza grande a destra), separate dalle attività.
+- Niente numerazioni decorative (tolte da barra laterale, progetti, mappa).
+- Mappa ripensata: piano caldo, progetti come quadrati neri, attività come etichette sfumate (`.mp`) collegate con linee tratteggiate curve (SVG); grandezza = priorità; disposizione automatica con eliminazione delle sovrapposizioni; trascinamento libero (posizioni salvate nel browser, `localStorage` `gest-mappa`), lasciando un'attività sul quadrato di un altro progetto la si sposta lì.

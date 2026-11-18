@@ -60,7 +60,16 @@ function h(tag, attrs, ...kids){
 }
 const catStyle = id => `--c:var(--c-${id});--ci:var(--c-${id}-ink)`;
 let toastT;
-function toast(msg){ let t = $('.toast'); if(!t){ t = h('div',{class:'toast'}); document.body.append(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(()=>t.remove(), 2600); }
+function toast(msg){ msg = cap(String(msg)); let t = $('.toast'); if(!t){ t = h('div',{class:'toast'}); document.body.append(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(()=>t.remove(), 2600); }
+const cap = s => s ? s.charAt(0).toLocaleUpperCase('it-IT') + s.slice(1) : s;
+const CAP_SEL = 'h1,h2 .t,h3,.nl-t,.nl-h,.ng-t,.chip,.btn,.tab span,.scope button,.stat-l,.eyebrow,.acts,.acts button,.f > label,.f > .lb,.tog,.qd button,.link,.meta .cat,.meta span,.tt,.mp-t,.mp-m,.empty,.side-app,.kv .k,.pill,.seg button,.quick button,.me-r,.waitline span,.waitline button,.cnt span,.prat-st,.prat-m .mono,.prat-dl,.tile-foot .due,.card .sub,.hub-l span,.map-key span,.prio-t,.login p,.confirm,.day,.sub,option';
+function capAll(root){
+  root.querySelectorAll(CAP_SEL).forEach(el => {
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let n; while((n = w.nextNode())){ const t = n.nodeValue; const i = t.search(/\S/); if(i >= 0){ n.nodeValue = t.slice(0,i) + cap(t.slice(i)); break; } }
+  });
+  root.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(i => i.placeholder = cap(i.placeholder));
+}
 const errMsg = e => (e && (e.message || e.error_description)) || 'errore sconosciuto';
 
 /* ---------------- dati ---------------- */
@@ -184,7 +193,7 @@ function meBox(){
 function render(){
   const app = $('#app');
   if(!sb) return;
-  if(drag && drag.on){ pendingRender = true; return; }
+  if((drag && drag.on) || mapDragging){ pendingRender = true; return; }
   if(!sessionEmail) return renderLogin(app);
   if(!me) return renderNonMembro(app);
   const sy = scrollY;
@@ -208,7 +217,6 @@ function render(){
     scopeToggle(),
     h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, h('div',{class:'ng-t mono'},g),
       ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id,title:NAV_HINT[id]},
-        h('span',{class:'nl-i mono'}, String(++n).padStart(2,'0')),
         h('span',{class:'nl-t'}, LABEL[id], h('span',{class:'nl-h'},NAV_HINT[id])),
         counts[id] ? h('span',{class:'nl-c mono'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null))))),
     h('div',{class:'side-foot'}, meBox(), h('button',{class:'link mono',onclick:logout},'esci')));
@@ -237,6 +245,7 @@ function render(){
     h('button',{class:'tab'+(more?' on':''),onclick:sheetAltro}, icon('altro'), h('span',null, more ? LABEL[active] : 'altro')));
   app.append(h('div',{class:'shell'}, side, content), tabbar);
   if(!$('.fab')) document.body.append(h('button',{class:'fab','aria-label':'nuovo',onclick:fabAction},'+'));
+  capAll(app);
   if(renderKeepScroll){ scrollTo(0, sy); }
 }
 let renderKeepScroll = true;
@@ -347,8 +356,8 @@ function nuovaAttivita(p){
 function section(el, title, items, opts={}){
   if(!items.length && !opts.keep) return;
   const box = h('section',{class:'grp'+(opts.late?' late':'')});
-  box.append(h('h2',null, h('span',{class:'t'},title), h('span',{class:'n mono'},items.length ? String(items.length).padStart(2,'0') : '—'), opts.acts||null));
-  const lst = h('div',{class:'list'});
+  box.append(h('h2',null, h('span',{class:'t'},title), h('span',{class:'n mono'},items.length ? String(items.length) : '—'), opts.acts||null));
+  const lst = h('div',{class: items.length && items.every(x=>x.__pratica) ? 'plist' : 'list'});
   if(!items.length && opts.emptyText) lst.append(h('div',{class:'empty sm'},opts.emptyText));
   items.forEach(x => lst.append(x.__pratica ? rowPratica(x.p) : (opts.row||rowAtt)(x)));
   box.append(lst); el.append(box);
@@ -358,7 +367,7 @@ const empty = (el, t) => el.append(h('div',{class:'empty'}, t));
 const asP = p => ({__pratica:true, p, scadenza:p.scadenza, created_at:p.created_at});
 function stat(lab, n, opts={}){
   return h(opts.href?'a':'div',{class:'stat '+(opts.cls||''),href:opts.href||null},
-    h('div',{class:'stat-n'}, String(n).padStart(2,'0')), h('div',{class:'stat-l mono'},lab));
+    h('div',{class:'stat-n'}, String(n)), h('div',{class:'stat-l mono'},lab));
 }
 const PRIO = ['bassa','media','alta'];
 const prioOf = a => PRIO.includes(a.priorita) ? a.priorita : 'media';
@@ -384,7 +393,7 @@ function vOggi(el){
 
   const left = h('div',{class:'day-l'});
   const ib = h('section',{class:'grp'},
-    h('h2',null, h('span',{class:'t'},'da sistemare'), h('span',{class:'n mono'}, String(inbox.length).padStart(2,'0')),
+    h('h2',null, h('span',{class:'t'},'da sistemare'), h('span',{class:'n mono'}, String(inbox.length)),
       h('span',{class:'acts mono'},'trascina sulla timeline')));
   const ibList = h('div',{class:'list drop','data-drop':'inbox','data-sort':''});
   if(!inbox.length) ibList.append(h('div',{class:'empty sm'},'Scrivi qui sopra le cose da fare oggi, come ti vengono in mente. Poi trascinale sull’orario.'));
@@ -405,65 +414,133 @@ function vOggi(el){
       h('div',{class:'slot-b'}, its.sort(sortA).map(a => rowAtt(a, {drag:true, compact:true})))));
   });
   const right = h('div',{class:'day-r'}, h('section',{class:'grp'},
-    h('h2',null, h('span',{class:'t'},'timeline'), h('span',{class:'n mono'}, String(timed.length).padStart(2,'0')),
+    h('h2',null, h('span',{class:'t'},'timeline'), h('span',{class:'n mono'}, String(timed.length)),
       h('span',{class:'acts mono'}, now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}))), tl));
   el.append(h('div',{class:'day'}, left, right));
 }
 
-/* ----- mappa: foglio bianco, attività per progetto, grandezza = priorità ----- */
+/* ----- mappa: piano libero, progetti come nodi, attività come etichette sfumate ----- */
+let mapDragging = false;
+let mapPos = (() => { try { return JSON.parse(lsGet('mappa') || '{}'); } catch(e){ return {}; } })();
+const hashN = s => { let x = 0; for(const c of String(s)) x = (x*31 + c.charCodeAt(0)) | 0; return Math.abs(x); };
 function vMappa(el){
   const items = att().filter(a => !isDone(a) && !a.ogni_giorno);
-  const W = {alta:4, media:2, bassa:1};
-  const zones = progetti().filter(p => p.stato !== 'chiuso').map(p => ({p, its: items.filter(a => a.progetto_id === p.id)}));
+  const groups = progetti().filter(p => p.stato !== 'chiuso')
+    .map(p => ({p, its: items.filter(a => a.progetto_id === p.id)}))
+    .filter(g => g.its.length || g.p.stato === 'attivo');
   const orph = items.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
-  zones.push({p:null, its: orph});
-  zones.forEach(z => { z.w = z.its.reduce((s,a)=>s+W[prioOf(a)],0); });
-  zones.sort((x,y) => (!x.p) - (!y.p) || y.w - x.w || cmpIt(x.p&&x.p.nome, y.p&&y.p.nome));
-  el.append(h('div',{class:'map-key mono'},
-    h('span',null,'grandezza = priorità'),
-    PRIO.slice().reverse().map(p => h('span',{class:'key-'+p}, h('i'), p)),
-    h('span',{class:'mute'},'clic sulla priorità per cambiarla · trascina un’attività su un altro progetto per spostarla')));
-  const sheetEl = h('div',{class:'foglio'});
-  const grid = h('div',{class:'zones'});
-  zones.forEach((z, i) => {
-    if(!z.its.length && (!z.p || z.p.stato !== 'attivo')) return;
-    const cl = z.p && get('clienti', z.p.cliente_id);
-    const zone = h('section',{class:'zona'+(z.w >= 12 ? ' big' : '')+(z.p?'':' none'),'data-drop':'prj:'+(z.p?z.p.id:'')},
-      h('header',{class:'zona-h'},
-        h('span',{class:'zona-i mono'}, z.p ? 'P'+String(i+1).padStart(2,'0') : '—'),
-        h('div',{style:'min-width:0;flex:1'},
-          z.p ? h('a',{class:'zona-n',href:'#progetto/'+z.p.id}, z.p.nome) : h('span',{class:'zona-n'},'senza progetto'),
-          h('div',{class:'zona-s mono'}, z.p ? [cl&&cl.nome, z.p.comune, z.p.stato!=='attivo'?z.p.stato:null].filter(Boolean).join(' · ') : 'attività generali dello studio')),
-        h('span',{class:'zona-c mono'}, String(z.its.length).padStart(2,'0'))));
-    const blobs = h('div',{class:'blobs'});
-    z.its.slice().sort((a,b) => W[prioOf(b)] - W[prioOf(a)] || sortA(a,b)).forEach(a => blobs.append(blob(a)));
-    if(!z.its.length) blobs.append(h('div',{class:'zona-e mono'},'nessuna attività aperta'));
-    zone.append(blobs); grid.append(zone);
+  if(orph.length) groups.push({p:null, its:orph});
+  el.append(h('div',{class:'map-key'},
+    h('span',{class:'k-pill p-alta'},'Alta'), h('span',{class:'k-pill p-media'},'Media'), h('span',{class:'k-pill p-bassa'},'Bassa'),
+    h('span',{class:'mute'},'La grandezza dice la priorità. Clic per aprire, trascina per spostare; lascia un’attività sul quadrato nero di un altro progetto per spostarla lì.')));
+  if(!groups.length) return empty(el,'Nessuna attività aperta.');
+  const W = Math.max(300, Math.min(innerWidth - (innerWidth >= 900 ? 264 + 96 : 32), 1304));
+  const cols = W < 700 ? 1 : W < 1250 ? 2 : 3, cw = W / cols;
+  const lay = groups.map(g => { const n = g.its.length; const rx = Math.min(cw*0.36, 95 + n*16); const ry = Math.max(70, rx*0.62 + n*6); return {...g, rx, ry, hgt: Math.max(260, ry*2*1.2 + 130)}; });
+  const rowsH = []; lay.forEach((g,i) => { const r = Math.floor(i/cols); rowsH[r] = Math.max(rowsH[r]||0, g.hgt); });
+  let H = 40; const rowTop = rowsH.map(hh => { const t = H; H += hh; return t; }); H += 40;
+  const cv = h('div',{class:'mapcv',style:`height:${H}px`});
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','mapsvg'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  cv.append(svg);
+  const hubs = [], paths = {}, pills = {};
+  const curve = (x1,y1,x2,y2) => { const mx = (x1+x2)/2; return `M${x1},${y1} C${x1},${(y1+y2)/2 - 40} ${mx},${y2} ${x2},${y2}`; };
+  const line = (d, cls) => { const p = document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d', d); p.setAttribute('class', cls||''); svg.append(p); return p; };
+  const small = W < 700;
+  const SZ = small ? {alta:{fs:15,mw:170,px:14,py:8}, media:{fs:12.5,mw:140,px:11,py:6}, bassa:{fs:11,mw:130,px:9,py:4}}
+                   : {alta:{fs:20,mw:240,px:22,py:12}, media:{fs:15,mw:210,px:16,py:8}, bassa:{fs:12,mw:180,px:11,py:5}};
+  const box = (a) => { const z = SZ[prioOf(a)], t = (a.titolo||'').length * z.fs * .54, inner = z.mw - 2*z.px;
+    const lines = Math.max(1, Math.ceil(t / inner)); const meta = prioOf(a) !== 'bassa' && (a.scadenza || isWaiting(a));
+    return {w: Math.min(z.mw, t + 2*z.px) + 14, h: lines * z.fs * 1.18 + 2*z.py + (meta ? 14 : 0) + 14}; };
+  const nodes = [];
+  lay.forEach((g, i) => {
+    const r = Math.floor(i/cols), c = i % cols, seed = hashN(g.p ? g.p.id : 'none');
+    const hx = cw*(c+0.5) + ((seed % 21) - 10) / 100 * cw * (small ? .3 : 1), hy = rowTop[r] + rowsH[r]/2 + ((seed % 17) - 8) * 3;
+    const hb = {g, x:hx, y:hy}; hubs.push(hb);
+    nodes.push({fixed:true, x:hx + 80, y:hy + 22, w:170, h:44}, {fixed:true, x:hx, y:hy, w:24, h:24});
+    const n = g.its.length, off = (seed % 360) * Math.PI / 180;
+    g.its.slice().sort((a,b) => PRIO.indexOf(prioOf(b)) - PRIO.indexOf(prioOf(a)) || sortA(a,b)).forEach((a, k) => {
+      const ang = off + k * 2*Math.PI / Math.max(n,1), ring = k % 2 ? 1.2 : 0.85, saved = mapPos[a.id], bx = box(a);
+      nodes.push({a, hb, fixed: !!saved, w: bx.w, h: bx.h,
+        x: saved ? hx + saved.dx : hx + Math.cos(ang) * g.rx * ring,
+        y: saved ? hy + saved.dy : hy + Math.sin(ang) * g.ry * ring});
+    });
   });
-  sheetEl.append(grid,
-    h('table',{class:'cartiglio mono'}, h('tbody',null,
-      h('tr',null, h('td',null,'tavola'), h('td',null,'mappa delle attività')),
-      h('tr',null, h('td',null,'data'), h('td',null, new Date().toLocaleDateString('it-IT'))),
-      h('tr',null, h('td',null,'vista'), h('td',null, scope==='studio'?'tutto lo studio':nomeMembro(me))),
-      h('tr',null, h('td',null,'attività'), h('td',null, String(items.length))))));
-  el.append(sheetEl);
+  for(let it = 0; it < 160; it++){
+    let moved = false;
+    for(let i = 0; i < nodes.length; i++) for(let j = i+1; j < nodes.length; j++){
+      const A = nodes[i], B = nodes[j]; if(A.fixed && B.fixed) continue;
+      const dx = B.x - A.x, dy = B.y - A.y, ox = (A.w + B.w)/2 - Math.abs(dx), oy = (A.h + B.h)/2 - Math.abs(dy);
+      if(ox <= 0 || oy <= 0) continue; moved = true;
+      const sx = dx >= 0 ? 1 : -1, sy = dy >= 0 ? 1 : -1, fa = A.fixed ? 0 : B.fixed ? 1 : .5, fb = 1 - fa;
+      if(ox < oy * 1.6){ A.x -= sx*ox*fa; B.x += sx*ox*fb; } else { A.y -= sy*oy*fa; B.y += sy*oy*fb; }
+    }
+    nodes.forEach(nd => { if(!nd.fixed){ nd.x = Math.max(nd.w/2 + 4, Math.min(W - nd.w/2 - 4, nd.x)); nd.y = Math.max(nd.h/2 + 10, nd.y); } });
+    if(!moved) break;
+  }
+  const maxY = Math.max(...nodes.map(nd => nd.y + nd.h/2)) + 50;
+  H = Math.max(maxY, 360); cv.style.height = H + 'px'; svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  hubs.forEach(hb => { const tint = hb.g.its.length ? (CATMAP[hb.g.its[0].categoria] ? hb.g.its[0].categoria : 'stu') : 'stu';
+    cv.append(h('div',{class:'haze',style:`left:${hb.x}px;top:${hb.y}px;width:${hb.g.rx*2.6}px;height:${hb.g.ry*2.6}px;${catStyle(tint)}`})); });
+  nodes.filter(nd => nd.a).forEach(nd => {
+    paths[nd.a.id] = line(curve(nd.hb.x, nd.hb.y, nd.x, nd.y));
+    const pl = pill(nd.a, nd.x, nd.y); pills[nd.a.id] = pl; cv.append(pl);
+  });
+  for(let i = 0; i < hubs.length; i++){
+    const A = hubs[i], B = hubs[(i+1) % hubs.length];
+    if(hubs.length > 1) line(`M${A.x},${A.y} C${A.x + 160},${A.y - 120} ${B.x - 160},${B.y + 120} ${B.x},${B.y}`, 'link');
+  }
+  hubs.forEach(hb => cv.append(h('div',{class:'hub',style:`left:${hb.x}px;top:${hb.y}px`,'data-hub':hb.g.p ? hb.g.p.id : ''},
+    h('span',{class:'sq'}),
+    h('span',{class:'hub-l'},
+      hb.g.p ? h('a',{href:'#progetto/'+hb.g.p.id}, hb.g.p.nome) : h('span',null,'Senza progetto'),
+      hb.g.p && get('clienti', hb.g.p.cliente_id) ? h('em',null, get('clienti', hb.g.p.cliente_id).nome) : null))));
+  // trascinamento libero sul piano
+  let md = null;
+  cv.addEventListener('pointerdown', e => {
+    const pl = e.target.closest('.mp'); if(!pl || e.button !== 0) return;
+    const r = cv.getBoundingClientRect();
+    md = {pl, id: pl.dataset.id, x0: e.clientX, y0: e.clientY, px: parseFloat(pl.style.left), py: parseFloat(pl.style.top), r, moved:false};
+    pl.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', e => {
+    if(!md) return;
+    const dx = e.clientX - md.x0, dy = e.clientY - md.y0;
+    if(!md.moved && Math.hypot(dx,dy) < 5) return;
+    md.moved = true; md.pl.classList.add('moving'); mapDragging = true;
+    const x = md.px + dx, y = md.py + dy; md.pl.style.left = x+'px'; md.pl.style.top = y+'px';
+    const hb = hubs.find(hb => (hb.g.p ? hb.g.p.id : null) === (get('attivita', md.id).progetto_id || null) && hb.g.its.some(a=>a.id===md.id)) || hubs.find(hb => hb.g.its.some(a=>a.id===md.id));
+    paths[md.id].setAttribute('d', curve(hb.x, hb.y, x, y));
+    md.target = hubs.find(o => o !== hb && Math.hypot(o.x - x, o.y - y) < 46);
+    cv.querySelectorAll('.hub.over').forEach(x => x.classList.remove('over'));
+    if(md.target) cv.querySelector(`.hub[data-hub="${md.target.g.p ? md.target.g.p.id : ''}"]`).classList.add('over');
+    md.hb = hb;
+  });
+  const up = () => {
+    if(!md) return; const d = md; md = null; mapDragging = false;
+    if(pendingRender){ pendingRender = false; setTimeout(render, 0); }
+    if(!d.moved){ sheetAttivita(get('attivita', d.id)); return; }
+    justDragged = true; setTimeout(() => justDragged = false, 50);
+    const a = get('attivita', d.id);
+    if(d.target){
+      delete mapPos[d.id]; lsSet('mappa', JSON.stringify(mapPos));
+      const pid = d.target.g.p ? d.target.g.p.id : null;
+      save('attivita', {...a, progetto_id: pid}); toast(pid ? 'Spostata in ' + d.target.g.p.nome : 'Tolta dal progetto');
+    } else {
+      mapPos[d.id] = {dx: parseFloat(d.pl.style.left) - d.hb.x, dy: parseFloat(d.pl.style.top) - d.hb.y};
+      lsSet('mappa', JSON.stringify(mapPos)); d.pl.classList.remove('moving');
+    }
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  el.append(h('div',{class:'mapwrap'}, cv),
+    h('div',{class:'map-foot'}, h('button',{class:'link',onclick:()=>{ mapPos = {}; lsSet('mappa','{}'); render(); }},'Rimetti in ordine la mappa')));
 }
-function blob(a){
-  const cat = CATMAP[a.categoria] ? a.categoria : 'stu', pr = prioOf(a), wait = isWaiting(a);
-  const late = a.scadenza && diff(a.scadenza) < 0;
-  const who = get('membri', a.assegnata_a);
-  const b = h('div',{class:'blob p-'+pr+(wait?' wait':'')+(late?' late':''),style:catStyle(cat),onclick:()=>sheetAttivita(a)},
-    h('div',{class:'blob-top'},
-      h('span',{class:'grip','aria-label':'trascina'}),
-      h('button',{class:'prio mono',title:'cambia priorità',onclick:e=>{ e.stopPropagation();
-        save('attivita',{...a, priorita: PRIO[(PRIO.indexOf(pr)+1)%3]}); }}, pr)),
-    h('div',{class:'blob-t'}, a.titolo || '(senza titolo)'),
-    h('div',{class:'blob-m mono'},
-      a.scadenza ? h('span',{class:late?'late':null}, dueLabel(a.scadenza)) : null,
-      wait ? h('span',null,'attende '+(a.attesa_chi||'altri')) : null,
-      who && (scope==='studio' || who.id!==me.id) ? h('span',null, iniziali(who).toUpperCase()) : null));
-  draggable(b, a);
-  return b;
+function pill(a, x, y){
+  const cat = CATMAP[a.categoria] ? a.categoria : 'stu', pr = prioOf(a);
+  const late = a.scadenza && diff(a.scadenza) < 0, wait = isWaiting(a);
+  return h('div',{class:'mp p-'+pr+(late?' late':'')+(wait?' wait':''),'data-id':a.id,style:`left:${x}px;top:${y}px;${catStyle(cat)}`,title:CATMAP[cat].name},
+    h('span',{class:'mp-t'}, a.titolo || '(senza titolo)'),
+    pr !== 'bassa' && (a.scadenza || wait) ? h('span',{class:'mp-m'}, wait ? 'Attende ' + (a.attesa_chi||'altri') : dueLabel(a.scadenza)) : null);
 }
 
 function vSett(el){
@@ -489,7 +566,7 @@ function vProgetti(el){
     const ps = all.filter(p=>p.stato===st);
     if(!ps.length) return;
     el.append(h('section',{class:'grp'},
-      h('h2',null,h('span',{class:'t'}, st==='attivo'?'in corso':st==='in pausa'?'in pausa':'chiusi'), h('span',{class:'n mono'},String(ps.length).padStart(2,'0'))),
+      h('h2',null,h('span',{class:'t'}, st==='attivo'?'in corso':st==='in pausa'?'in pausa':'chiusi'), h('span',{class:'n mono'},String(ps.length))),
       h('div',{class:'grid'}, ps.map(p => cardProgetto(p, ++i)))));
   });
   const orfane = att().filter(a=>!isDone(a) && (!a.progetto_id || !get('progetti',a.progetto_id))).sort(sortA);
@@ -502,12 +579,11 @@ function cardProgetto(p, i){
   const prox = aperte.concat(prat).map(x=>x.scadenza).filter(Boolean).sort()[0];
   const cats = [...new Set(aperte.map(a=>CATMAP[a.categoria]?a.categoria:'stu'))];
   return h('a',{class:'tile'+(p.stato!=='attivo'?' dim':''),href:'#progetto/'+p.id},
-    h('div',{class:'tile-i mono'}, 'P'+String(i).padStart(2,'0'), h('span',null, p.comune||'')),
-    h('div',{class:'tile-top'}, h('div',{class:'nm'},p.nome), h('div',{class:'sub'}, cl ? cl.nome : ' ')),
+    h('div',{class:'tile-top'}, h('div',{class:'nm'},p.nome), h('div',{class:'sub'}, [cl && cl.nome, p.comune].filter(Boolean).join(' · ') || ' ')),
     h('div',{class:'dots'}, cats.map(c => h('span',{class:'dot',style:catStyle(c),title:CATMAP[c].name}))),
     h('div',{class:'tile-foot mono'},
-      h('span',null,h('b',null,String(aperte.length).padStart(2,'0')),' attività'),
-      h('span',null,h('b',null,String(prat.length).padStart(2,'0')), prat.length===1?' pratica':' pratiche'),
+      h('span',null,h('b',null,String(aperte.length)),' attività'),
+      h('span',null,h('b',null,String(prat.length)), prat.length===1?' pratica':' pratiche'),
       prox ? h('span',{class:'due'+(diff(prox)<0?' late-t':'')}, dueLabel(prox)) : null));
 }
 function vProgetto(el){
@@ -568,6 +644,7 @@ function vClienti(el){
         h('div',{style:'min-width:0;flex:1'}, h('div',{class:'nm'},c.nome), h('div',{class:'sub mono'},[c.telefono,c.email,c.codice_fiscale].filter(Boolean).join(' · ')||' ')),
         h('div',{class:'cnt mono'}, ps.length ? h('span',null,h('b',null,ps.length), ps.length===1?' progetto':' progetti') : null));
     })));
+    capAll(box);
   }
   drawList();
 }
@@ -578,7 +655,7 @@ function vFatte(el){
 }
 function vStudio(el){
   const admin = me.ruolo === 'admin';
-  el.append(h('section',{class:'grp'}, h('h2',null,h('span',{class:'t'},'persone che usano il gestionale'), h('span',{class:'n mono'},String(membri().length).padStart(2,'0'))),
+  el.append(h('section',{class:'grp'}, h('h2',null,h('span',{class:'t'},'persone che usano il gestionale'), h('span',{class:'n mono'},String(membri().length))),
     h('div',{class:'list'}, membri().map(m => h('div',{class:'card',onclick:admin?()=>sheetMembro(m):null,style:admin?null:'cursor:default'},
       h('span',{class:'who lg'},iniziali(m).toUpperCase()),
       h('div',{style:'min-width:0;flex:1'}, h('div',{class:'nm'},nomeMembro(m)), h('div',{class:'sub mono'},m.email)),
@@ -621,15 +698,18 @@ function toggle(a){
 }
 function rowPratica(p){
   const pr = get('progetti',p.progetto_id);
-  const meta = h('div',{class:'meta'});
-  if(pr && route.view!=='progetto') meta.append(h('a',{class:'prj',href:'#progetto/'+pr.id,onclick:e=>e.stopPropagation()},pr.nome));
-  if(p.comune) meta.append(h('span',null,p.comune));
-  meta.append(h('span',{class:p.stato==='integrazioni richieste'?'late':'cat'},p.stato));
-  if(p.data_deposito) meta.append(h('span',null,'depositata il '+fmtDate(p.data_deposito)));
-  if(p.scadenza && p.stato!=='conclusa'){ const n=diff(p.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null},dueLabel(p.scadenza))); }
-  return h('div',{class:'task'+(p.stato==='conclusa'?' done':''),style:catStyle('pa')},
-    h('div',{class:'doc','aria-hidden':'true'}),
-    h('div',{class:'tb',onclick:()=>sheetPratica(p)}, h('div',{class:'tt'}, p.tipo + (p.protocollo?' — prot. '+p.protocollo:'')), meta));
+  const st = p.stato, hot = st === 'integrazioni richieste' || (p.scadenza && st !== 'conclusa' && diff(p.scadenza) < 0);
+  const due = p.scadenza && st !== 'conclusa' ? parse(p.scadenza) : null;
+  return h('div',{class:'prat'+(st==='conclusa'?' done':'')+(hot?' hot':''),onclick:()=>sheetPratica(p)},
+    h('div',{class:'prat-tag mono'}, 'Pratica'),
+    h('div',{class:'prat-b'},
+      h('div',{class:'prat-t'}, p.tipo),
+      h('div',{class:'prat-m'},
+        pr && route.view!=='progetto' ? h('a',{class:'prj',href:'#progetto/'+pr.id,onclick:e=>e.stopPropagation()},pr.nome) : null,
+        h('span',{class:'mono'}, [p.comune, p.protocollo ? 'prot. '+p.protocollo : null, p.data_deposito ? 'depositata il '+fmtDate(p.data_deposito) : null].filter(Boolean).join(' · ')),
+        h('span',{class:'prat-st mono'+(st==='integrazioni richieste'?' late':'')}, st))),
+    due ? h('div',{class:'prat-d'}, h('div',{class:'prat-dn'}, pad(due.getDate())+'.'+pad(due.getMonth()+1)),
+      h('div',{class:'prat-dl mono'+(diff(p.scadenza)<0?' late':'')}, dueLabel(p.scadenza))) : null);
 }
 
 /* ---------------- schede (moduli) ---------------- */
@@ -637,7 +717,7 @@ const ov = $('#ov'), sheet = $('#sheet');
 function closeSheet(){ ov.hidden = true; sheet.innerHTML = ''; }
 ov.addEventListener('click', e => { if(e.target === ov) closeSheet(); });
 addEventListener('keydown', e => { if(e.key === 'Escape' && !ov.hidden) closeSheet(); });
-function openSheet(...kids){ sheet.innerHTML=''; sheet.append(...kids.flat().filter(Boolean)); ov.hidden=false; sheet.scrollTop=0; }
+function openSheet(...kids){ sheet.innerHTML=''; sheet.append(...kids.flat().filter(Boolean)); capAll(sheet); ov.hidden=false; sheet.scrollTop=0; }
 const fld = (label, ...inputs) => h('div',{class:'f'}, h('label',null,label), ...inputs);
 const txt = (v, ph, type) => h('input',{type:type||'text', value:v||'', placeholder:ph||''});
 function delBtn(onConfirm, warning){
@@ -879,6 +959,7 @@ function renderLogin(app, mode){
       mode!=='entra'?h('button',{onclick:()=>renderLogin(app,'entra')},'ho già un accesso'):null,
       mode!=='crea'?h('button',{onclick:()=>renderLogin(app,'crea')},'primo accesso: crea la password'):null,
       mode!=='reset'?h('button',{onclick:()=>renderLogin(app,'reset')},'password dimenticata'):null)));
+  capAll(app);
 }
 function renderNewPassword(){
   const app = $('#app'); app.innerHTML='';
@@ -896,6 +977,7 @@ function renderNonMembro(app){
     h('p',null,'Sei entrato come ',h('b',null,sessionEmail),', ma questo indirizzo non è tra le persone dello studio.'),
     h('p',null,'Chiedi a un amministratore di aggiungerlo dalla sezione “studio”, poi ricarica la pagina.'),
     h('div',{class:'btns'}, h('button',{class:'btn',onclick:()=>location.reload()},'ricarica'), h('button',{class:'btn',onclick:logout},'esci'))));
+  capAll(app);
 }
 async function logout(){ await sb.auth.signOut(); sessionEmail=''; me=null; TABLES.forEach(t=>D[t]=new Map()); if(liveCh){ sb.removeChannel(liveCh); liveCh=null; } render(); }
 
