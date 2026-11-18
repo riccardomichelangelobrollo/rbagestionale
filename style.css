@@ -473,3 +473,20 @@ body.ov-open{overflow:hidden}
 .lbox-n{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:20px}
 .lbox-n:hover,.lbox-x:hover{background:#fff;color:#111}
 .lbox-p{left:16px}.lbox-s{right:16px}
+
+/* scadenze del progetto: la data davanti */
+.scad{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:var(--c);border:1.5px solid transparent;cursor:pointer}
+.scad.p-alta{background:var(--cs)}
+.scad.p-bassa{background:var(--surface);border-color:var(--cs)}
+.scad.wait{background:repeating-linear-gradient(135deg,var(--c) 0 5px,var(--surface) 5px 10px)}
+.scad.is-p{background:var(--surface);border:1px solid var(--ink)}
+.scad:hover{box-shadow:0 0 0 1px var(--ink)}
+.scad-k{flex:none;width:20px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-align:center}
+.scad-d{flex:none;width:46px;height:46px;border-radius:9px;background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.scad-d b{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.scad-d span{font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;color:var(--ink2)}
+.scad.today .scad-d{background:var(--ink);color:#fff;border-color:var(--ink)}
+.scad.today .scad-d span{color:#ccc}
+.scad.late .scad-d{background:var(--accent);border-color:var(--accent);color:#111}
+.scad.late .scad-d span{color:#111}
+.scad-b{flex:1;min-width:0}

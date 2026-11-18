@@ -366,9 +366,9 @@ function section(el, title, items, opts={}){
   if(!items.length && !opts.keep) return;
   const box = h('section',{class:'grp'+(opts.late?' late':'')});
   box.append(h('h2',null, h('span',{class:'t'},title), items.length ? h('span',{class:'n'},items.length) : null, opts.acts||null));
-  const lst = h('div',{class: items.length && items.every(x=>x.__pratica) ? 'plist' : 'list'});
+  const lst = h('div',{class: items.length && items.every(x=>x.__pratica) && !opts.row ? 'plist' : 'list'});
   if(!items.length && opts.emptyText) lst.append(h('div',{class:'empty sm'},opts.emptyText));
-  items.forEach(x => lst.append(x.__pratica ? rowPratica(x.p) : (opts.row||rowAtt)(x)));
+  items.forEach(x => lst.append(opts.row ? opts.row(x) : x.__pratica ? rowPratica(x.p) : rowAtt(x)));
   box.append(lst); el.append(box);
   return box;
 }
@@ -514,7 +514,8 @@ function deskOverlay(){
         h('div',{style:'min-width:0'}, h('div',{class:'fo-t'}, f.title)),
         h('div',{class:'fo-a'},
           ['oggi','settimana','attesa','generali','progetto'].includes(route.view) ? h('button',{class:'btn sm pri',onclick:()=>sheetAttivita(null, route.view==='progetto' ? {progetto_id:route.id} : route.view==='oggi' ? {in_oggi:today()} : null)},'+ Attività') : null,
-        ['pratiche','progetto'].includes(route.view) ? h('button',{class:'btn sm',onclick:()=>{ const p = get('progetti',route.id); sheetPratica(null, p ? {progetto_id:p.id, comune:p.comune} : null); }},'+ Pratica') : null,
+        route.view === 'progetto' ? h('button',{class:'btn sm',onclick:()=>sheetAttivita(null,{progetto_id:route.id, scadenza:addDays(today(),7)},'nuova scadenza')},'+ Scadenza') : null,
+        route.view === 'pratiche' ? h('button',{class:'btn sm',onclick:()=>sheetPratica()},'+ Pratica') : null,
         route.view === 'progetto' ? h('button',{class:'btn sm'+(showInfo?' on':''),onclick:()=>{ showInfo = !showInfo; render(); }},'Dati del progetto') : null,
           h('button',{class:'x',onclick:closeDesk,'aria-label':'Chiudi'},'×'))),
       body));
@@ -800,24 +801,50 @@ function vProgetto(el){
   const p = get('progetti', route.id);
   if(!p) return empty(el,'Progetto non trovato: forse è stato eliminato.');
   const cl = get('clienti',p.cliente_id);
-  const kv = (k,v) => v ? h('div',{class:'kv'}, h('div',{class:'k mono'},k), h('div',{class:'v'},v)) : null;
-  if(!route.desk || showInfo) el.append(h('div',{class:'phead'},
-    h('div',{class:'kvs'},
-      kv('cliente', cl ? h('a',{href:'#',onclick:e=>{e.preventDefault();sheetCliente(cl);}},cl.nome) : null),
-      kv('comune', p.comune), kv('indirizzo', p.indirizzo),
-      kv('telefono', cl && cl.telefono ? h('a',{href:'tel:'+cl.telefono.replace(/\s/g,'')},cl.telefono) : null),
-      kv('stato', h('span',{class:'pill st-'+p.stato.replace(' ','-')},p.stato))),
-    p.note ? h('div',{class:'note'},p.note) : null,
-    h('div',{class:'btns'}, h('button',{class:'btn sm',onclick:()=>sheetProgetto(p)},'modifica'))));
+  const kv = (k,v) => v ? h('div',{class:'kv'}, h('div',{class:'k'},k), h('div',{class:'v'},v)) : null;
   const prat = list('pratiche').filter(x=>x.progetto_id===p.id).sort(sortA);
-  section(el,'pratiche',prat.filter(x=>x.stato!=='conclusa').map(asP),{keep:true,emptyText:'nessuna pratica aperta',
-    acts:h('span',{class:'acts'},h('button',{onclick:()=>sheetPratica(null,{progetto_id:p.id, comune:p.comune})},'+ pratica'))});
-  section(el,'pratiche concluse',prat.filter(x=>x.stato==='conclusa').map(asP));
   const a = list('attivita').filter(x=>x.progetto_id===p.id).filter(x=>!catFilter||(x.categoria||'stu')===catFilter);
+  const dati = () => {
+    el.append(h('div',{class:'phead'},
+      h('div',{class:'kvs'},
+        kv('cliente', cl ? h('a',{href:'#',onclick:e=>{e.preventDefault();sheetCliente(cl);}},cl.nome) : null),
+        kv('comune', p.comune), kv('indirizzo', p.indirizzo),
+        kv('telefono', cl && cl.telefono ? h('a',{href:'tel:'+cl.telefono.replace(/\s/g,'')},cl.telefono) : null),
+        kv('stato', h('span',{class:'pill st-'+p.stato.replace(' ','-')},p.stato))),
+      p.note ? h('div',{class:'note'},p.note) : null,
+      h('div',{class:'btns'}, h('button',{class:'btn sm',onclick:()=>sheetProgetto(p)},'modifica'))));
+    section(el,'pratiche',prat.filter(x=>x.stato!=='conclusa').map(asP),{keep:true,emptyText:'nessuna pratica aperta',
+      acts:h('span',{class:'acts'},h('button',{onclick:()=>sheetPratica(null,{progetto_id:p.id, comune:p.comune})},'+ pratica'))});
+    section(el,'pratiche concluse',prat.filter(x=>x.stato==='conclusa').map(asP));
+  };
+  if(route.desk){
+    // la cartella: prima le scadenze, poi le cose senza data; i dati (e le pratiche) dietro il pulsante
+    if(showInfo) dati();
+    const sc = a.filter(x=>!isDone(x) && !x.ogni_giorno && x.scadenza)
+      .concat(prat.filter(x=>x.stato!=='conclusa' && x.scadenza).map(asP)).sort(sortA);
+    section(el,'scadenze',sc,{keep:true,emptyText:'Nessuna scadenza: aggiungila con “+ Scadenza”.',row:rowScad,late:sc.some(x=>diff(x.scadenza)<0)});
+    section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)&&!x.scadenza).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'Nessuna attività senza data.'});
+    section(el,'in attesa di altri',a.filter(x=>isWaiting(x)&&!x.scadenza).sort(sortA));
+    section(el,'fatte',a.filter(x=>x.fatta).sort((x,y)=>cmpIt(y.fatta_il,x.fatta_il)).slice(0,30));
+    return;
+  }
+  dati();
   section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'nessuna attività aperta',
     acts:h('span',{class:'acts'},h('button',{onclick:()=>sheetAttivita(null,{progetto_id:p.id})},'+ attività'))});
   section(el,'in attesa di altri',a.filter(isWaiting).sort(sortA));
   section(el,'fatte',a.filter(x=>x.fatta).sort((x,y)=>cmpIt(y.fatta_il,x.fatta_il)).slice(0,30));
+}
+function rowScad(x){
+  const isP = !!x.__pratica, o = isP ? x.p : x, d = parse(o.scadenza), n = diff(o.scadenza);
+  const cat = !isP && CATMAP[o.categoria] ? o.categoria : 'stu';
+  return h('div',{class:'scad'+(isP?' is-p':' p-'+prioOf(o))+(n<0?' late':n===0?' today':'')+(!isP&&isWaiting(o)?' wait':''),style:isP?null:catStyle(cat),
+      onclick:()=>isP?sheetPratica(o):sheetAttivita(o)},
+    isP ? h('span',{class:'scad-k'},'Pratica') : h('button',{class:'chk','aria-label':'segna fatta',onclick:e=>{ e.stopPropagation(); toggle(o); }}),
+    h('div',{class:'scad-d'}, h('b',null,d.getDate()), h('span',null,d.toLocaleDateString('it-IT',{month:'short'}).replace('.',''))),
+    h('div',{class:'scad-b'},
+      h('div',{class:'tt'}, isP ? o.tipo : o.titolo),
+      h('div',{class:'meta'}, h('span',{class:n<0?'late':n===0?'today':null}, dueLabel(o.scadenza)),
+        isP ? h('span',null,o.stato) : (isWaiting(o) ? h('span',null,'attende '+(o.attesa_chi||'altri')) : null))));
 }
 function vAttesa(el){
   const items = att().filter(isWaiting).sort(sortA);
@@ -1005,7 +1032,7 @@ function selectOf(options, value, empty){
 }
 let lastCat = lsGet('cat') || 'stu';
 
-function sheetAttivita(a, preset){
+function sheetAttivita(a, preset, heading){
   const isNew = !a;
   const d = a ? {...a} : nuovaAttivita(Object.assign({in_oggi: route.view==='oggi'?today():null}, preset||{}));
   const title = txt(d.titolo,'che cosa c’è da fare');
@@ -1041,7 +1068,7 @@ function sheetAttivita(a, preset){
     closeSheet(); if(isNew) toast('aggiunta');
   };
   title.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); doSave(); } });
-  openSheet(h('h3',null,isNew?'nuova attività':'attività'),
+  openSheet(h('h3',null,heading || (isNew?'nuova attività':'attività')),
     h('div',{class:'f'},title),
     h('div',{class:'f'},h('span',{class:'lb'},'tipo di attività'),cats),
     h('div',{class:'f'},h('span',{class:'lb'},'priorità'),prios),
