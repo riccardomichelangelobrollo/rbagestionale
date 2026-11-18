@@ -76,3 +76,13 @@ Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiorna
 - Attività con lo sfondo pastello della categoria su tutta la riga (non più striscia laterale). Pratiche come schede-documento (`rowPratica`, classe `.prat`, con data di scadenza grande a destra), separate dalle attività.
 - Niente numerazioni decorative (tolte da barra laterale, progetti, mappa).
 - Mappa ripensata: piano caldo, progetti come quadrati neri, attività come etichette sfumate (`.mp`) collegate con linee tratteggiate curve (SVG); grandezza = priorità; disposizione automatica con eliminazione delle sovrapposizioni; trascinamento libero (posizioni salvate nel browser, `localStorage` `gest-mappa`), lasciando un'attività sul quadrato di un altro progetto la si sposta lì.
+
+### Revisione 3: scrivania a cartelle
+- **Syne** sostituisce il Times (titoli, nomi, numeri grandi; variabile `--display`). Stile più morbido: angoli 6–14px, fondo carta `#fbf8f5`, ombre piene corte sugli elementi toccabili. Tolte le diagonali dal riepilogo.
+- **Home = Scrivania** (`#scrivania`, `vScrivania`): tre ripiani di cartelle (`folder()`):
+  - "La giornata": Oggi, Prossimi 7 giorni, In attesa di altri, Pratiche edilizie;
+  - "Progetti in corso": una cartella per progetto attivo, più "Nuovo progetto";
+  - "Studio": Studio e generali (attività senza progetto, `vGenerali`), In pausa, Completate.
+  Una cartella aperta (`#scrivania/<vista>` o `#scrivania/progetto/<id>`) si sovrappone alla scrivania (`deskOverlay`), la barra laterale resta. Si chiude con "Chiudi", con Esc o con un clic fuori. I link ai progetti aprono la cartella del progetto.
+- **Mappa solo da guardare** su fondo neutro: passando sopra un progetto o un'attività si evidenzia il gruppo; tasto destro (sul telefono: tieni premuto) apre `ctxMenu` con priorità, tipo, "metti in programma oggi", "segna come fatta", "modifica tutti i dettagli". Niente più trascinamento sulla mappa.
+- Attenzione ai nomi di classe già usati: `.pill` (stato), `.ghost` (copia durante il trascinamento). Per questo le etichette della mappa sono `.mp` e la cartella tratteggiata è `.fd-new`.
