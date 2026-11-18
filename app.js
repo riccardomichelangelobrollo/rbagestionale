@@ -613,9 +613,8 @@ function vMappa(el){
   el.append(wrap);
   if(!groups.length){ wrap.append(h('div',{class:'empty'},'Nessuna attività con questa priorità.')); return; }
   const W = Math.max(300, innerWidth - (innerWidth >= 900 ? 82 : 18)), Hv = Math.max(420, innerHeight - 92);
-  const small = W < 700, K = small ? .72 : 1;
-  const SZ = small ? {alta:{fs:15,mw:170,px:14,py:8}, media:{fs:12.5,mw:140,px:11,py:6}, bassa:{fs:11,mw:120,px:9,py:4}}
-                   : {alta:{fs:19,mw:230,px:20,py:11}, media:{fs:14,mw:190,px:14,py:7}, bassa:{fs:12,mw:160,px:10,py:4}};
+  const small = W < 700, K = 1;
+  const SZ = {alta:{fs:19,mw:230,px:20,py:11}, media:{fs:14,mw:190,px:14,py:7}, bassa:{fs:12,mw:160,px:10,py:4}};
   const box = a => { const z = SZ[prioOf(a)], t = (a.titolo||'').length * z.fs * .54, inner = z.mw - 2*z.px;
     const lines = Math.max(1, Math.ceil(t / inner)); const meta = prioOf(a) !== 'bassa' && (a.scadenza || isWaiting(a));
     return {w: Math.min(z.mw, t + 2*z.px) + 16, h: lines * z.fs * 1.18 + 2*z.py + (meta ? 14 : 0) + 16}; };
@@ -624,7 +623,7 @@ function vMappa(el){
   const hubs = [], nodes = [];
   groups.forEach((g, i) => {
     const seed = hashN(g.p ? g.p.id : 'none'), r = 230 * K * Math.sqrt(i), a0 = i * 2.39996;
-    const hb = {hub:true, g, x: Math.cos(a0) * r, y: Math.sin(a0) * r, rad: (REST.bassa + 40) * Math.min(1, .55 + g.its.length * .06)};
+    const hb = {hub:true, g, x: small ? 0 : Math.cos(a0) * r, y: small ? i * 520 * K : Math.sin(a0) * r, rad: (REST.bassa + 40) * Math.min(1, .55 + g.its.length * .06)};
     hubs.push(hb);
     PRIO.slice().reverse().forEach((pr, ri) => {
       const arr = g.its.filter(a => prioOf(a) === pr).sort(sortA);
@@ -635,7 +634,7 @@ function vMappa(el){
   // 2. assestamento organico: molle verso il proprio progetto, repulsione tra tutti, gravità verso il centro
   const ext = n => Math.max(n.w, n.h) * .5;
   for(let it = 0, T = 1; it < 320; it++, T *= .992){
-    hubs.forEach(hb => { hb.fx = -hb.x * .012; hb.fy = -hb.y * .012; });
+    hubs.forEach(hb => { hb.fx = -hb.x * (small ? .05 : .012); hb.fy = small ? 0 : -hb.y * .012; });
     nodes.forEach(n => { n.fx = 0; n.fy = 0; const dx = n.x - n.hb.x, dy = n.y - n.hb.y, d = Math.hypot(dx, dy) || 1, k = (d - REST[n.pr]) * .06;
       n.fx -= dx / d * k; n.fy -= dy / d * k; n.hb.fx += dx / d * k * .25; n.hb.fy += dy / d * k * .25; });
     for(let i = 0; i < hubs.length; i++) for(let j = i+1; j < hubs.length; j++){
@@ -649,6 +648,17 @@ function vMappa(el){
     hubs.forEach(hb => { hb.x += hb.fx * T; hb.y += hb.fy * T; });
     nodes.forEach(n => { n.x += n.fx * T; n.y += n.fy * T; });
   }
+  // 2b. ogni progetto nel suo cerchio; i cerchi non si toccano (si sposta tutto il gruppo)
+  const circ = hb => { const ns = nodes.filter(n => n.hb === hb);
+    const cx = (hb.x + 60 + ns.reduce((t,n) => t + n.x, 0)) / (ns.length + 1), cy = (hb.y + 10 + ns.reduce((t,n) => t + n.y, 0)) / (ns.length + 1);
+    const r = Math.max(120, Math.hypot(hb.x - cx, hb.y - cy) + 30, Math.hypot(hb.x + 170 - cx, hb.y + 30 - cy), ...ns.map(n => Math.hypot(n.x - cx, n.y - cy) + Math.hypot(n.w, n.h) / 2 - 6)) + 16;
+    return {hb, cx, cy, r}; };
+  const shiftG = (hb, dx, dy) => { hb.x += dx; hb.y += dy; nodes.forEach(n => { if(n.hb === hb){ n.x += dx; n.y += dy; } }); };
+  for(let it = 0; it < 120; it++){ let moved = false; const cs = hubs.map(circ);
+    for(let i = 0; i < cs.length; i++) for(let j = i+1; j < cs.length; j++){
+      const A = cs[i], B = cs[j], dx = B.cx - A.cx, dy = B.cy - A.cy, d = Math.hypot(dx, dy) || 1, m = A.r + B.r + 28;
+      if(d < m){ const f = (m - d) / 2 + .5; shiftG(A.hb, -dx/d*f, -dy/d*f); shiftG(B.hb, dx/d*f, dy/d*f); moved = true; } }
+    if(!moved) break; }
   // 3. nessuna sovrapposizione, etichette dei progetti comprese
   const rects = nodes.concat(hubs.map(hb => ({fixed:true, x:hb.x + 78, y:hb.y + 20, w:170, h:44})), hubs.map(hb => ({fixed:true, x:hb.x, y:hb.y, w:22, h:22})));
   for(let it = 0; it < 200; it++){ let moved = false;
@@ -660,14 +670,19 @@ function vMappa(el){
       if(ox < oy) { A.x -= sx*ox*fa; B.x += sx*ox*fb; } else { A.y -= sy*oy*fa; B.y += sy*oy*fb; } }
     if(!moved) break; }
   // 4. centrare nel foglio
-  const minX = Math.min(...rects.map(r => r.x - r.w/2)), maxX = Math.max(...rects.map(r => r.x + r.w/2));
-  const minY = Math.min(...rects.map(r => r.y - r.h/2)), maxY = Math.max(...rects.map(r => r.y + r.h/2));
-  const H = Math.max(Hv, maxY - minY + 120), ox = W/2 - (minX + maxX)/2, oy = H/2 - (minY + maxY)/2 + 20;
+  const circles = hubs.map(circ);
+  const minX = Math.min(...rects.map(r => r.x - r.w/2), ...circles.map(c => c.cx - c.r)), maxX = Math.max(...rects.map(r => r.x + r.w/2), ...circles.map(c => c.cx + c.r));
+  const minY = Math.min(...rects.map(r => r.y - r.h/2), ...circles.map(c => c.cy - c.r)), maxY = Math.max(...rects.map(r => r.y + r.h/2), ...circles.map(c => c.cy + c.r));
+  const H = Math.max(Hv, maxY - minY + 110), ox = W/2 - (minX + maxX)/2, oy = H/2 - (minY + maxY)/2 + 20;
   const sc = Math.min(1, (W - 24) / (maxX - minX));
-  const X = x => W/2 + (x + ox - W/2) * sc, Y = y => y + oy;
-  const cv = h('div',{class:'mapcv',style:`height:${H}px`});
+  const X = x => W/2 + (x + ox - W/2) * sc, Y = y => sc < 1 ? 50 + (y + oy - H/2 + (maxY - minY)/2 + 0) * sc : y + oy;
+  const cv = h('div',{class:'mapcv',style:`height:${H * (sc < 1 ? sc : 1) + (sc < 1 ? 60 : 0)}px;--sc:${sc}`});
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('class','mapsvg'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const actives = progetti().filter(x => x.stato === 'attivo');
+  circles.forEach(c => { const p = c.hb.g.p, i = p ? actives.indexOf(p) : -1, col = i >= 0 ? FOLDER_COLORS[i % FOLDER_COLORS.length] : '#cfcac3';
+    const R = c.r * sc;
+    cv.append(h('div',{class:'ring','data-hub':p ? p.id : 'none',style:`left:${X(c.cx)}px;top:${Y(c.cy)}px;width:${2*R}px;height:${2*R}px;--g:${col}`})); });
   cv.append(svg);
   const curve = (x1,y1,x2,y2) => `M${x1},${y1} C${x1 + (x2-x1)*.15},${y1 + (y2-y1)*.7} ${x1 + (x2-x1)*.6},${y2} ${x2},${y2}`;
   nodes.forEach(n => {

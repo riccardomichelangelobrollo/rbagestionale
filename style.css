@@ -308,18 +308,21 @@ body.ov-open{overflow:hidden}
 .mf-n{font-size:11px;color:var(--mute);font-variant-numeric:tabular-nums}
 .mapwrap > .empty{margin:90px auto 60px;max-width:360px;text-align:center}
 .mapcv{position:relative;width:100%}
+.ring{position:absolute;z-index:0;transform:translate(-50%,-50%);border-radius:50%;background:color-mix(in srgb,var(--g) 16%,transparent);border:1.5px solid color-mix(in srgb,var(--g) 55%,transparent);transition:opacity .2s,background .2s}
+.mapcv.focus .ring:not(.hl){opacity:.25}
+.mapcv.focus .ring.hl{background:color-mix(in srgb,var(--g) 26%,transparent)}
 .mapsvg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 .mapsvg path{fill:none;stroke:#8a8680;stroke-width:1;stroke-dasharray:4 4;transition:opacity .2s}
 .mapsvg path.p-alta{stroke:#3b3b3b;stroke-width:1.3}
 .hub{position:absolute;z-index:4}
 .hub .sq{position:absolute;width:11px;height:11px;background:var(--ink);border-radius:2px;transform:translate(-50%,-50%)}
-.hub-l{position:absolute;left:12px;top:5px;white-space:nowrap;display:flex;flex-direction:column;background:rgba(245,245,243,.88);padding:1px 5px 2px;border-radius:5px}
+.hub-l{position:absolute;left:12px;top:5px;transform:scale(var(--sc,1));transform-origin:0 0;white-space:nowrap;display:flex;flex-direction:column;background:rgba(245,245,243,.88);padding:1px 5px 2px;border-radius:5px}
 .hub-l a,.hub-l > span{font-family:var(--title);font-weight:700;font-size:15px;text-decoration:none;color:var(--ink)}
 .hub-l a:hover{text-decoration:underline}
 .hub-l em{font-style:normal;font-size:11.5px;color:var(--mute)}
-.mp{position:absolute;z-index:3;transform:translate(-50%,-50%);border-radius:999px;text-align:center;line-height:1.15;color:var(--ink);
+.mp{position:absolute;z-index:3;transform:translate(-50%,-50%) scale(var(--sc,1));border-radius:999px;text-align:center;line-height:1.15;color:var(--ink);
   user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:opacity .2s,transform .2s}
-.mp:hover{transform:translate(-50%,-50%) scale(1.05)}
+.mp:hover{transform:translate(-50%,-50%) scale(calc(var(--sc,1) * 1.05))}
 .mp-t{display:block}
 .mp-m{display:block;font-size:10.5px;margin-top:2px;color:var(--ci)}
 .mp.p-alta{background:var(--cs);padding:11px 20px;font-size:19px;font-weight:600;max-width:230px;box-shadow:0 0 0 5px color-mix(in srgb,var(--cs) 40%,#fff),0 0 22px 10px color-mix(in srgb,var(--cs) 60%,transparent)}
