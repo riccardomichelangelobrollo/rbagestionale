@@ -64,7 +64,7 @@ create table if not exists public.attivita (
   id           uuid primary key default gen_random_uuid(),
   titolo       text not null,
   progetto_id  uuid references public.progetti(id) on delete set null,
-  categoria    text not null default 'stu' check (categoria in ('pa','can','prog','cli','amm','stu')),
+  categoria    text not null default 'stu',
   scadenza     date,
   ogni_giorno  boolean not null default false,
   fatta        boolean not null default false,
@@ -86,6 +86,10 @@ alter table public.attivita drop constraint if exists attivita_priorita_check;
 alter table public.attivita add constraint attivita_priorita_check check (priorita in ('bassa','media','alta'));
 alter table public.attivita add column if not exists ora_oggi text;          -- 'HH:MM' nel giorno indicato da in_oggi
 alter table public.attivita add column if not exists ordine double precision; -- ordine tra le cose da sistemare
+
+-- tipi di attività (aggiornato il 18/11/2026: aggiunta 'cont', contabilità di cantiere)
+alter table public.attivita drop constraint if exists attivita_categoria_check;
+alter table public.attivita add constraint attivita_categoria_check check (categoria in ('pa','can','cont','prog','cli','amm','stu'));
 
 create index if not exists attivita_progetto_idx on public.attivita(progetto_id);
 create index if not exists attivita_assegnata_idx on public.attivita(assegnata_a);

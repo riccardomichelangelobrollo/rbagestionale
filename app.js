@@ -9,6 +9,7 @@ const $ = s => document.querySelector(s);
 const CATS = [
   {id:'pa',  name:'pratiche e P.A.'},
   {id:'can', name:'cantiere e sicurezza'},
+  {id:'cont',name:'contabilità di cantiere'},
   {id:'prog',name:'progetto e disegno'},
   {id:'cli', name:'clienti e sopralluoghi'},
   {id:'amm', name:'parcelle e amministrazione'},

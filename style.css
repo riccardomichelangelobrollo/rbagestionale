@@ -28,6 +28,7 @@
   /* tipo di attività: tenue · pieno · inchiostro */
   --c-pa:#D5E6EF;   --c-pa-s:#8EC0DD;   --c-pa-ink:#245168;
   --c-can:#F3E7B3;  --c-can-s:#E6C547;  --c-can-ink:#6A560B;
+  --c-cont:#E9DDCF; --c-cont-s:#C4A27F; --c-cont-ink:#5B4029;
   --c-prog:#D9E9D0; --c-prog-s:#8DC57A; --c-prog-ink:#33612A;
   --c-cli:#F6D9C7;  --c-cli-s:#EF9F70;  --c-cli-ink:#83431B;
   --c-amm:#F3D6DE;  --c-amm-s:#E59CB3;  --c-amm-ink:#762B45;
