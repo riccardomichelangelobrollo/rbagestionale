@@ -131,11 +131,14 @@ const findMe = () => list('membri').find(m => m.email === sessionEmail && m.atti
 /* ---------------- regole sulle attività ---------------- */
 const isDone = a => a.ogni_giorno ? a.fatta_oggi === today() : !!a.fatta;
 const isWaiting = a => !!(a.attesa_chi || a.attesa_cosa) && !isDone(a);
+const parentOf = a => a && a.per_scadenza ? get('attivita', a.per_scadenza) : null;
+const effDue = a => a.scadenza || ((parentOf(a) || {}).scadenza) || null;
+const figli = s => list('attivita').filter(c => c.per_scadenza === s.id);
 const inToday = a => {
   if(a.ogni_giorno) return true;
   if(a.fatta) return false;
-  const td = today();
-  return (a.in_oggi && a.in_oggi <= td) || (a.scadenza && a.scadenza <= td);
+  const td = today(), due = effDue(a);
+  return (a.in_oggi && a.in_oggi <= td) || (due && due <= td);
 };
 const mine = () => true;
 const sortA = (a,b) => { const o = x => x.__pratica ? x.p : x; const ka = (a.scadenza||'9999')+(o(a).scadenza_ora||'~')+(a.created_at||''), kb = (b.scadenza||'9999')+(o(b).scadenza_ora||'~')+(b.created_at||''); return ka<kb?-1:ka>kb?1:0; };
@@ -206,7 +209,7 @@ function render(){
   counts = {
     oggi: att().filter(a => inToday(a) && !isDone(a)).length,
     mappa: open.filter(a => !a.ogni_giorno).length,
-    settimana: open.filter(a => !a.ogni_giorno && a.scadenza && diff(a.scadenza) < 7).length + praticheAperte().filter(p=>p.scadenza && diff(p.scadenza)<7).length,
+    settimana: open.filter(a => !a.ogni_giorno && effDue(a) && diff(effDue(a)) < 7).length + praticheAperte().filter(p=>p.scadenza && diff(p.scadenza)<7).length,
     progetti: progetti().filter(p => p.stato === 'attivo').length,
     attesa: open.filter(isWaiting).length,
     pratiche: praticheAperte().length,
@@ -360,7 +363,7 @@ function quickAdd(){
 }
 function nuovaAttivita(p){
   return Object.assign({id:uuid(), titolo:'', progetto_id:null, categoria: catFilter || lastCat, scadenza:null, ogni_giorno:false,
-    fatta:false, fatta_il:null, fatta_oggi:null, in_oggi:null, ora_oggi:null, ordine:null, priorita:'media', allegati:[], scadenza_ora:null, attesa_chi:'', attesa_cosa:'', note:'',
+    fatta:false, fatta_il:null, fatta_oggi:null, in_oggi:null, ora_oggi:null, ordine:null, priorita:'media', allegati:[], scadenza_ora:null, per_scadenza:null, attesa_chi:'', attesa_cosa:'', note:'',
     assegnata_a: me.id, creata_da: me.id, created_at: new Date().toISOString()}, p||{});
 }
 
@@ -454,7 +457,7 @@ function vScrivania(el){
   const lateTxt = n => n ? n + (n === 1 ? ' scaduta' : ' scadute') : null;
   const todays = att().filter(a => inToday(a) && !isDone(a) && !a.ogni_giorno);
   const timed = todays.filter(a => a.in_oggi === td && a.ora_oggi).sort((a,b)=>cmpIt(a.ora_oggi,b.ora_oggi));
-  const week = open.filter(a => !a.ogni_giorno && a.scadenza && diff(a.scadenza) < 7).sort(sortA);
+  const week = open.filter(a => !a.ogni_giorno && effDue(a) && diff(effDue(a)) < 7).sort((x,y) => cmpIt(effDue(x), effDue(y)) || sortA(x,y));
   const wait = open.filter(isWaiting).sort(sortA);
   const pr = praticheAperte().sort(sortA), integr = pr.filter(p => p.stato === 'integrazioni richieste').length;
   /* Regola unica per ogni cartella: numero = quante cose contiene; riga sotto il titolo = cosa scotta (solo se c'è);
@@ -472,7 +475,7 @@ function vScrivania(el){
   el.append(h('div',{class:'desk'},
     shelf('La giornata', [
       F({href:'#scrivania/oggi', title:'Oggi', color:'#111', items: timed.map(a => a.ora_oggi + ' ' + a.titolo).concat(todays.filter(a => !timed.includes(a)).map(a => a.titolo))}, todays),
-      F({href:'#scrivania/settimana', title:'Prossimi 7 giorni', color:'#E9C85A', items: week.map(a => SHORT_DAY(a.scadenza) + (a.scadenza_ora ? ' ' + a.scadenza_ora : '') + ' · ' + a.titolo)}, week),
+      F({href:'#scrivania/settimana', title:'Prossimi 7 giorni', color:'#E9C85A', items: week.map(a => SHORT_DAY(effDue(a)) + (a.scadenza_ora ? ' ' + a.scadenza_ora : '') + ' · ' + a.titolo)}, week),
       F({href:'#scrivania/attesa', title:'In attesa di altri', color:'#E7DAEA', items: wait.map(a => (a.attesa_chi||'Qualcuno') + ' · ' + a.titolo)}, wait),
       F({href:'#scrivania/pratiche', title:'Pratiche edilizie', color:'#DCEDF2', items: pr.map(p => p.tipo + ' · ' + ((get('progetti',p.progetto_id)||{}).comune || p.comune || ''))}, pr,
         integr ? integr + (integr === 1 ? ' integrazione richiesta' : ' integrazioni richieste') : null)
@@ -637,12 +640,18 @@ function vMappa(el){
         nodes.push({a, hb, pr, w: bx.w, h: bx.h, x: hb.x + Math.cos(ang) * REST[pr], y: hb.y + Math.sin(ang) * REST[pr] * .8}); });
     });
   });
+  // le attività da fare entro una scadenza si agganciano alla scadenza, non al progetto
+  nodes.forEach(n => { const par = n.a.per_scadenza && nodes.find(m => m.a.id === n.a.per_scadenza);
+    if(par){ n.par = par; const k = nodes.filter(m => m.par === par).length, ang = k * 1.3;
+      n.x = par.x + (par.x - par.hb.x) * .6 + Math.cos(ang) * 40; n.y = par.y + (par.y - par.hb.y) * .6 + Math.sin(ang) * 40; } });
+  const anchor = n => n.par || n.hb, restOf = n => n.par ? (Math.max(n.par.w, n.par.h) * .5 + Math.max(n.w, n.h) * .5 + 18) : REST[n.pr];
   // 2. assestamento organico: molle verso il proprio progetto, repulsione tra tutti, gravità verso il centro
   const ext = n => Math.max(n.w, n.h) * .5;
   for(let it = 0, T = 1; it < 320; it++, T *= .992){
     hubs.forEach(hb => { hb.fx = -hb.x * (small ? .05 : .012 / ASP); hb.fy = small ? 0 : -hb.y * .012 * ASP * ASP; });
-    nodes.forEach(n => { n.fx = 0; n.fy = 0; const dx = n.x - n.hb.x, dy = n.y - n.hb.y, d = Math.hypot(dx, dy) || 1, k = (d - REST[n.pr]) * .06;
-      n.fx -= dx / d * k; n.fy -= dy / d * k; n.hb.fx += dx / d * k * .25; n.hb.fy += dy / d * k * .25; });
+    nodes.forEach(n => { n.fx = 0; n.fy = 0; });
+    nodes.forEach(n => { const A = anchor(n), dx = n.x - A.x, dy = n.y - A.y, d = Math.hypot(dx, dy) || 1, k = (d - restOf(n)) * (n.par ? .1 : .06);
+      n.fx -= dx / d * k; n.fy -= dy / d * k; A.fx += dx / d * k * .25; A.fy += dy / d * k * .25; });
     for(let i = 0; i < hubs.length; i++) for(let j = i+1; j < hubs.length; j++){
       const A = hubs[i], B = hubs[j], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 1, m = A.rad + B.rad;
       if(d < m){ const f = (m - d) * .08; A.fx -= dx/d*f; A.fy -= dy/d*f; B.fx += dx/d*f; B.fy += dy/d*f; } }
@@ -693,7 +702,7 @@ function vMappa(el){
   nodes.forEach(n => {
     const key = n.hb.g.p ? n.hb.g.p.id : 'none';
     const pa = document.createElementNS('http://www.w3.org/2000/svg','path');
-    pa.setAttribute('d', curve(X(n.hb.x), Y(n.hb.y), X(n.x), Y(n.y))); pa.setAttribute('class','p-'+n.pr); pa.dataset.hub = key; pa.dataset.id = n.a.id; svg.append(pa);
+    const A = anchor(n); pa.setAttribute('d', curve(X(A.x), Y(A.y), X(n.x), Y(n.y))); pa.setAttribute('class','p-'+n.pr+(n.par?' sub':'')); pa.dataset.hub = key; pa.dataset.id = n.a.id; svg.append(pa);
     const pl = pill(n.a, X(n.x), Y(n.y)); pl.dataset.hub = key; cv.append(pl);
   });
   hubs.forEach(hb => { const key = hb.g.p ? hb.g.p.id : 'none', cl = hb.g.p && get('clienti', hb.g.p.cliente_id);
@@ -758,15 +767,17 @@ function pill(a, x, y){
 }
 
 function vSett(el){
-  const a = att().filter(x=>!x.ogni_giorno && !isDone(x) && x.scadenza && diff(x.scadenza)<7);
+  const a = att().filter(x=>!x.ogni_giorno && !isDone(x) && effDue(x) && diff(effDue(x))<7);
   const p = (catFilter && catFilter!=='pa') ? [] : praticheAperte().filter(x=>x.scadenza && diff(x.scadenza)<7).map(asP);
-  const items = a.concat(p).sort(sortA);
+  const dd = x => x.__pratica ? x.scadenza : effDue(x);
+  const grp = x => { const q = !x.__pratica && parentOf(x); return q ? q : x; };
+  const items = a.concat(p).sort((x,y) => cmpIt(dd(x), dd(y)) || sortA(grp(x), grp(y)) || (parentOf(x) ? 1 : 0) - (parentOf(y) ? 1 : 0) || sortA(x,y));
   if(!items.length) return empty(el,'Nessuna scadenza nei prossimi sette giorni.');
-  section(el,'scadute',items.filter(x=>diff(x.scadenza)<0),{late:true});
+  section(el,'scadute',items.filter(x=>diff(dd(x))<0),{late:true});
   for(let i=0;i<7;i++){
     const d = addDays(today(),i);
     const lab = i===0?'oggi':i===1?'domani':parse(d).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'short'});
-    section(el,lab,items.filter(x=>x.scadenza===d));
+    section(el,lab,items.filter(x=>dd(x)===d));
   }
 }
 function vProgetti(el){
@@ -827,9 +838,9 @@ function vProgetto(el){
       .concat(prat.filter(x=>x.stato!=='conclusa' && x.scadenza).map(asP)).sort(sortA);
     section(el,'scadenze',sc,{keep:true,emptyText:'Nessuna scadenza.',row:rowScad,late:sc.some(x=>diff(x.scadenza)<0),
       add:{title:'Nuova scadenza', fn:()=>sheetAttivita(null,{progetto_id:p.id, scadenza:addDays(today(),7)},'nuova scadenza')}});
-    section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)&&!x.scadenza).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'Nessuna attività senza data.',
+    section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)&&!x.scadenza&&!parentOf(x)).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'Nessuna attività senza data.',
       add:{title:'Nuova attività', fn:()=>sheetAttivita(null,{progetto_id:p.id})}});
-    section(el,'in attesa di altri',a.filter(x=>isWaiting(x)&&!x.scadenza).sort(sortA));
+    section(el,'in attesa di altri',a.filter(x=>isWaiting(x)&&!x.scadenza&&!parentOf(x)).sort(sortA));
     section(el,'fatte',a.filter(x=>x.fatta).sort((x,y)=>cmpIt(y.fatta_il,x.fatta_il)).slice(0,30));
     return;
   }
@@ -842,7 +853,8 @@ function vProgetto(el){
 function rowScad(x){
   const isP = !!x.__pratica, o = isP ? x.p : x, d = parse(o.scadenza), n = diff(o.scadenza);
   const cat = !isP && CATMAP[o.categoria] ? o.categoria : 'stu';
-  return h('div',{class:'scad'+(isP?' is-p':' p-'+prioOf(o))+(n<0?' late':n===0?' today':'')+(!isP&&isWaiting(o)?' wait':''),style:isP?null:catStyle(cat),
+  const fs = isP ? [] : figli(o), aperti = fs.filter(c => !c.fatta), fatti = fs.length - aperti.length;
+  const row = h('div',{class:'scad'+(isP?' is-p':' p-'+prioOf(o))+(n<0?' late':n===0?' today':'')+(!isP&&isWaiting(o)?' wait':''),style:isP?null:catStyle(cat),
       onclick:()=>isP?sheetPratica(o):sheetAttivita(o)},
     isP ? h('span',{class:'scad-k'},'Pratica') : h('button',{class:'chk','aria-label':'segna fatta',onclick:e=>{ e.stopPropagation(); toggle(o); }}),
     h('div',{class:'scad-d'}, h('b',null,d.getDate()), h('span',null,d.toLocaleDateString('it-IT',{month:'short'}).replace('.',''))),
@@ -850,7 +862,14 @@ function rowScad(x){
     h('div',{class:'scad-b'},
       h('div',{class:'tt'}, isP ? o.tipo : o.titolo),
       h('div',{class:'meta'}, n < 7 ? h('span',{class:n<0?'late':n===0?'today':null}, dueLabel(o.scadenza)) : null,
-        isP ? h('span',null,o.stato) : (isWaiting(o) ? h('span',null,'attende '+(o.attesa_chi||'altri')) : null))));
+        fs.length ? h('span',{class:'prog'}, h('i',{style:`--p:${Math.round(fatti / fs.length * 100)}%`}), fatti + ' di ' + fs.length + ' fatte') : null,
+        isP ? h('span',null,o.stato) : (isWaiting(o) ? h('span',null,'attende '+(o.attesa_chi||'altri')) : null))),
+    isP ? null : h('button',{class:'scad-add',title:'Aggiungi una cosa da fare entro questa scadenza','aria-label':'Aggiungi una cosa da fare entro questa scadenza',
+      onclick:e=>{ e.stopPropagation(); sheetAttivita(null,{progetto_id:o.progetto_id, per_scadenza:o.id, categoria:o.categoria}, 'da fare entro: ' + o.titolo); }},'+'));
+  if(isP || !aperti.length) return row;
+  const W = {alta:0, media:1, bassa:2};
+  return h('div',{class:'scad-g'}, row,
+    h('div',{class:'scad-f'}, aperti.sort((p,q) => W[prioOf(p)] - W[prioOf(q)] || sortA(p,q)).map(c => rowAtt(c, {compact:true, inScad:true}))));
 }
 function vAttesa(el){
   const items = att().filter(isWaiting).sort(sortA);
@@ -919,6 +938,9 @@ function rowAtt(a, o={}){
   if(a.ogni_giorno) meta.append(h('span',null,'ogni giorno'));
   else if(a.scadenza && !done){ const n = diff(a.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null},dueTxt(a))); }
   if(!a.ogni_giorno && !done && a.in_oggi && a.in_oggi<=today() && route.view!=='oggi') meta.append(h('span',null,'in programma oggi'));
+  const par = parentOf(a);
+  if(par && !done && !o.inScad){ const n = diff(par.scadenza || today());
+    meta.append(h('span',{class:'entro'+(n<0?' late':n===0?' today':'')}, 'Entro: ' + par.titolo + (par.scadenza ? ' · ' + dueTxt(par) : ''))); }
   if(a.note) meta.append(h('span',null,'· nota'));
   if((a.allegati||[]).length) meta.append(h('span',{class:'att-n',title:'Immagini allegate'}, ICON_IMG(), a.allegati.length));
   const body = h('div',{class:'tb',onclick:()=>sheetAttivita(a)}, h('div',{class:'tt'},a.titolo||'(senza titolo)'), meta);
@@ -1047,9 +1069,17 @@ function sheetAttivita(a, preset, heading){
   const drawCats = () => { cats.innerHTML=''; CATS.forEach(c => cats.append(h('span',{class:'chip'+(c.id===cat?' on':''),style:catStyle(c.id),onclick:()=>{cat=c.id;drawCats();}},c.name))); };
   drawCats();
   const prog = selectOf(progetti().filter(p=>p.stato!=='chiuso'||p.id===d.progetto_id).map(p=>({value:p.id,label:p.nome})), d.progetto_id, '— nessun progetto —');
+  const entroOpts = () => list('attivita').filter(x => x.id !== d.id && x.scadenza && !x.fatta && !x.per_scadenza && (x.progetto_id||'') === (prog.value||'')).sort(sortA)
+    .map(x => ({value:x.id, label: x.titolo + ' — ' + fmtDate(x.scadenza) + (x.scadenza_ora ? ' ' + x.scadenza_ora : '')}));
+  const entroBox = h('div');
+  let entro = null;
+  const drawEntro = () => { const cur = entro ? entro.value : d.per_scadenza; entroBox.innerHTML = '';
+    entro = selectOf(entroOpts(), cur, '— nessuna: ha una data sua —'); entro.addEventListener('change', syncEntro); entroBox.append(entro); syncEntro(); };
+  const syncEntro = () => { const on = !!(entro && entro.value); [due, dueT].forEach(i => { if(i){ i.disabled = on; if(on) i.value = ''; } }); };
   const chi = selectOf(membri().filter(m=>m.attivo||m.id===d.assegnata_a).map(m=>({value:m.id,label:nomeMembro(m)+(m.id===me.id?' (tu)':'')})), d.assegnata_a, '— chiunque —');
   const due = h('input',{type:'date',value:d.scadenza||''});
   const dueT = h('input',{type:'time',value:d.scadenza_ora||'','aria-label':'ora della scadenza'});
+  drawEntro(); prog.addEventListener('change', drawEntro);
   const daily = h('input',{type:'checkbox',checked:!!d.ogni_giorno});
   const planned = h('input',{type:'checkbox',checked:!!(d.in_oggi && d.in_oggi<=today())});
   const ora = h('input',{type:'time',value:(d.in_oggi===today() && d.ora_oggi) || '',step:'1800'});
@@ -1068,7 +1098,7 @@ function sheetAttivita(a, preset, heading){
     lastCat = cat; lsSet('cat',cat);
     const td = today();
     save('attivita',{...d, titolo:v, categoria:cat, progetto_id:prog.value||null, assegnata_a:chi.value||null,
-      scadenza:due.value||null, scadenza_ora: due.value && dueT.value ? dueT.value.slice(0,5) : null, ogni_giorno:daily.checked,
+      scadenza:due.value||null, scadenza_ora: due.value && dueT.value ? dueT.value.slice(0,5) : null, per_scadenza: entro && entro.value || null, ogni_giorno:daily.checked,
       in_oggi: (planned.checked || ora.value) ? (d.in_oggi && d.in_oggi<=td && !ora.value ? d.in_oggi : td) : null,
       ora_oggi: (planned.checked || ora.value) && ora.value ? ora.value.slice(0,5) : null, priorita: prio,
       attesa_chi:wchi.value.trim(), attesa_cosa:wcosa.value.trim(), note:note.value.trim(), allegati});
@@ -1085,6 +1115,7 @@ function sheetAttivita(a, preset, heading){
       h('button',{type:'button',onclick:()=>due.value=addDays(today(),1)},'domani'),
       h('button',{type:'button',onclick:()=>due.value=addDays(today(),7)},'tra una settimana'),
       h('button',{type:'button',onclick:()=>{ due.value=''; dueT.value=''; }},'nessuna'))),
+    fld('oppure entro la scadenza…', entroBox),
     h('div',{class:'f'}, h('div',{class:'row-oggi'}, h('label',{class:'tog'},planned,'da fare oggi'), h('label',{class:'tog'},'alle ',ora)), h('label',{class:'tog'},daily,'ogni giorno (torna da fare ogni mattina)')),
     h('div',{class:'f waitbox'}, h('span',{class:'lb'},'prima bisogna aspettare che…'), wchi, dl, h('div',{style:'height:6px'}), wcosa),
     h('div',{class:'f'},note),

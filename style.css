@@ -501,3 +501,16 @@ body.ov-open{overflow:hidden}
 .scad-h{flex:none;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;padding:3px 7px;border-radius:7px;background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.12)}
 .scad.late .scad-h{border-color:var(--accent);color:var(--accent)}
 .scad-h.none{visibility:hidden}
+
+/* attività da fare entro una scadenza */
+.scad-g{display:flex;flex-direction:column;gap:4px}
+.scad-f{display:flex;flex-direction:column;gap:4px;margin:0 0 4px 30px;padding-left:12px;border-left:2px solid rgba(0,0,0,.18)}
+.scad-add{flex:none;margin-left:auto;width:30px;height:30px;border-radius:8px;font-size:20px;font-weight:300;line-height:1;display:grid;place-items:center;border:1px solid transparent}
+.scad-add:hover{background:var(--ink);color:#fff}
+.prog{display:inline-flex;align-items:center;gap:6px}
+.prog i{display:inline-block;width:42px;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--ink) var(--p),rgba(0,0,0,.15) var(--p))}
+.meta .entro{font-weight:500;color:var(--ink2)}
+.meta .entro.today{color:var(--ink);font-weight:600}
+.meta .entro.late{color:var(--accent);font-weight:600}
+.f select:disabled,.f input:disabled{opacity:.35}
+.mapsvg path.sub{stroke-dasharray:2 3;stroke:#555}

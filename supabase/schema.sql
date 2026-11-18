@@ -95,6 +95,10 @@ alter table public.attivita add constraint attivita_categoria_check check (categ
 alter table public.attivita add column if not exists scadenza_ora text;
 alter table public.pratiche add column if not exists scadenza_ora text;
 
+-- attività da fare entro una scadenza (un'altra attività con data): aggiunto il 18/11/2026
+alter table public.attivita add column if not exists per_scadenza uuid references public.attivita(id) on delete set null;
+create index if not exists attivita_per_scadenza_idx on public.attivita(per_scadenza);
+
 create index if not exists attivita_progetto_idx on public.attivita(progetto_id);
 create index if not exists attivita_assegnata_idx on public.attivita(assegnata_a);
 create index if not exists pratiche_progetto_idx on public.pratiche(progetto_id);
