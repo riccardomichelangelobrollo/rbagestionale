@@ -564,3 +564,18 @@ body.ov-open{overflow:hidden}
   .mapwrap{margin-left:-16px;margin-right:-16px}
 }
 .toast{bottom:calc(var(--bb) + 20px + env(safe-area-inset-bottom))}
+
+/* voci del menu come i pulsanti del sito: Inter grassetto con la freccia diagonale */
+.bbar{gap:40px}
+.bb-logo{position:relative;display:inline-flex}
+.bb-logo .bb-dot{top:-2px;right:-12px}
+.bb-items{justify-content:space-between;padding-left:8vw}
+.bb-i{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;letter-spacing:.1em}
+.bb-i .arr{width:.75em;height:.75em;margin:0;transition:transform .2s}
+.bb-i .arr svg{stroke-width:2.4}
+.bb-i:hover .arr{transform:translate(2px,-2px)}
+.bb-i::after{right:calc(.75em + 5px)}
+.bb-out{font-weight:600;color:var(--mute)}
+.bb-out::after{right:0}
+.bbar{border-top:0}
+@media(max-width:899px){ .mpanel{border-top:0;box-shadow:0 -14px 24px -18px rgba(0,0,0,.25)} }

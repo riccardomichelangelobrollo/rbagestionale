@@ -220,14 +220,13 @@ function render(){
   const prevOv = $('.fo'); if(prevOv) ovScroll = prevOv.scrollTop;
   let n = 0;
   // menu: una riga in basso (computer); logo e "Menu" in basso (telefono), che apre le voci come sul sito
-  const VOCI = [['scrivania','Scrivania'],['mappa','Mappa'],['calendario','Calendario'],['progetti','Progetti'],['pratiche','Pratiche'],['clienti','Clienti'],['studio','Persone']];
+  const VOCI = [['mappa','Mappa'],['progetti','Progetti'],['pratiche','Pratiche'],['clienti','Clienti'],['studio','Persone']];
   const dataBreve = new Date().toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}).replace('.','');
   const bbar = h('nav',{class:'bbar','aria-label':'Menu'},
-    logo(),
-    h('div',{class:'bb-items'}, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:'bb-i'+(active===id?' on':''), title:NAV_HINT[id]||null}, lab,
-      id === 'scrivania' && lateCount ? h('i',{class:'bb-dot',title:'Qualcosa è scaduto'}) : null))),
+    h('span',{class:'bb-logo'}, logo(), lateCount ? h('i',{class:'bb-dot',title:'Qualcosa è scaduto'}) : null),
+    h('div',{class:'bb-items'}, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:'bb-i'+(active===id?' on':''), title:NAV_HINT[id]||null}, h('span',null,lab), ARROW()))),
     h('span',{class:'bb-d'}, dataBreve),
-    h('button',{class:'bb-i bb-out',onclick:logout,title:nomeMembro(me)},'Esci'),
+    h('button',{class:'bb-i bb-out',onclick:logout,title:nomeMembro(me)}, h('span',null,'Esci')),
     h('button',{class:'bb-menu','aria-expanded':String(navOpen),onclick:()=>setNav(!navOpen)}, h('span',{class:'m-open'},'Menu'), h('span',{class:'m-close'},'Chiudi')));
   const mpanel = h('div',{class:'mpanel',onclick:e=>{ if(e.target.closest('a')) setNav(false); }},
     h('nav',null, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:active===id?'on':null}, lab, ARROW()))),
