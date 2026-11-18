@@ -39,7 +39,7 @@ Tutte le tabelle hanno `id uuid`, `created_at` e `updated_at` (aggiornato da tri
 
 - Al login carica tutte le tabelle in memoria (`D[tabella]` = Map), poi le tiene aggiornate in tempo reale; rilegge tutto quando la pagina torna in primo piano.
 - Rotte sull'hash: `#oggi`, `#settimana`, `#progetti`, `#progetto/<id>`, `#attesa`, `#pratiche`, `#clienti`, `#fatte`, `#studio`.
-- Selettore **le mie / tutto lo studio** (in localStorage): "le mie" = assegnate a me o non assegnate.
+- Vista unica per tutto lo studio (il selettore "le mie / tutto lo studio" è stato tolto il 18/11/2026): tutti vedono tutte le attività; le iniziali dicono chi le segue.
 - **Logica delle categorie e dei colori:** azzurro carta = pratiche e P.A.; giallo cantiere smorzato = cantiere e sicurezza; verde salvia = progetto e disegno; pesca = clienti e sopralluoghi; rosa cipria = parcelle e amministrazione; lilla = studio e personale. **Tratteggio grigio** = in attesa di altri (come la campitura di ciò che non è ancora definito in una tavola). Rosso scuro `#B3261E` solo per scaduto e "integrazioni richieste".
 - Le pratiche compaiono in "oggi" e "prossimi 7 giorni" quando hanno una scadenza, e in "in attesa" quando sono depositate.
 - Moduli in finestre a scomparsa (`sheetAttivita`, `sheetProgetto`, `sheetPratica`, `sheetCliente`, `sheetMembro`, `sheetImport`); eliminazione con doppia pressione, mai `confirm()`.

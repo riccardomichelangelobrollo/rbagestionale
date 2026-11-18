@@ -75,7 +75,7 @@ const errMsg = e => (e && (e.message || e.error_description)) || 'errore sconosc
 /* ---------------- dati ---------------- */
 const D = {}; TABLES.forEach(t => D[t] = new Map());
 let sb = null, me = null, sessionEmail = '', syncState = '';
-let scope = lsGet('scope') || 'mie';
+let scope = 'studio'; // un'unica vista per tutto lo studio: niente filtro "le mie"
 let catFilter = null, showClosed = false, showConcluse = false, clientQuery = '';
 
 const list = t => [...D[t].values()];
@@ -135,7 +135,7 @@ const inToday = a => {
   const td = today();
   return (a.in_oggi && a.in_oggi <= td) || (a.scadenza && a.scadenza <= td);
 };
-const mine = a => scope === 'studio' || !a.assegnata_a || (me && a.assegnata_a === me.id);
+const mine = () => true;
 const sortA = (a,b) => { const ka = (a.scadenza||'9999')+(a.created_at||''), kb = (b.scadenza||'9999')+(b.created_at||''); return ka<kb?-1:ka>kb?1:0; };
 const att = () => list('attivita').filter(mine).filter(a => !catFilter || (a.categoria||'stu') === catFilter);
 const praticheAperte = () => list('pratiche').filter(p => p.stato !== 'conclusa');
@@ -184,11 +184,6 @@ function newLabel(){
     || (route.view==='studio' && me.ruolo==='admin' ? 'aggiungi persona' : 'nuova attività');
 }
 const syncText = () => syncState==='live' ? 'sincronizzato' : syncState==='off' ? 'non sincronizzato: ricarica' : 'collegamento…';
-function scopeToggle(){
-  return h('div',{class:'scope',title:'mostra solo le tue attività o quelle di tutto lo studio'},
-    h('button',{class:scope==='mie'?'on':null,onclick:()=>{scope='mie';lsSet('scope',scope);render();}},'le mie'),
-    h('button',{class:scope==='studio'?'on':null,onclick:()=>{scope='studio';lsSet('scope',scope);render();}},'tutto lo studio'));
-}
 function meBox(){
   return h('div',{class:'me'}, h('span',{class:'who'},iniziali(me).toUpperCase()),
     h('div',{style:'min-width:0'}, h('div',{class:'me-n'},nomeMembro(me)),
@@ -220,7 +215,6 @@ function render(){
   let n = 0;
   const side = h('aside',{class:'side',onclick:e=>{ if(e.target.closest('a.nl')) setNav(false); }},
     h('div',{class:'side-top'}, logo(), h('button',{class:'x',onclick:()=>setNav(false),'aria-label':'Chiudi il menu'},'×')),
-    scopeToggle(),
     h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, g ? h('div',{class:'ng-t mono'},g) : null,
       ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id,title:NAV_HINT[id]},
         h('span',{class:'nl-t'}, LABEL[id], h('span',{class:'nl-h'},NAV_HINT[id])),
@@ -848,7 +842,7 @@ function rowAtt(a, o={}){
     h('span',null,'aspetti ',h('b',null,a.attesa_chi||'qualcuno'), a.attesa_cosa?' — '+a.attesa_cosa:''),
     h('button',{onclick:e=>{e.stopPropagation(); save('attivita',{...a,attesa_chi:'',attesa_cosa:''}); toast('sbloccata: ora tocca a voi');}},'sbloccata')));
   const who = get('membri',a.assegnata_a);
-  const showWho = who && (scope==='studio' || who.id!==me.id);
+  const showWho = !!who;
   const row = h('div',{class:'task p-'+prioOf(a)+(done?' done':'')+(wait?' wait':'')+(o.compact?' compact':''),style:catStyle(cat),title:CATMAP[cat].name+' · priorità '+prioOf(a)},
     o.drag ? h('span',{class:'grip','aria-label':'trascina'}) : null,
     h('button',{class:'chk','aria-label':done?'segna da fare':'segna fatta',onclick:()=>toggle(a)}), body,
