@@ -9,8 +9,8 @@
             Jost       solo il logo R B A.
             Inter      l'interfaccia: titoli di pagina e di sezione, attività,
                        comandi.
-            Syne       titoli, nomi propri e numeri grandi: pagine, cartelle,
-                       progetti, clienti, la data del giorno, i messaggi.
+            Times      solo i titoli, in grassetto: pagine, sezioni, cartelle,
+                       progetti, schede.
             Plex Mono  etichette tecniche, contatori, protocolli: come le quote
                        e il cartiglio di una tavola.
    Gerarchia (computer)
@@ -34,7 +34,7 @@
   --c-stu:#D9D1EA;  --c-stu-ink:#4F4275;
   --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --serif:"Syne",Inter,system-ui,sans-serif; --display:"Syne",Inter,system-ui,sans-serif;
+  --serif:"Times New Roman",Times,serif; --display:Inter,system-ui,sans-serif; --title:"Times New Roman",Times,serif;
   --brand:"Jost","Futura","Century Gothic",sans-serif;
 }
 *{box-sizing:border-box}
@@ -617,3 +617,105 @@ body.ov-open{overflow:hidden}
   .fd-l li:nth-child(n+3){display:none}
   .ctx{width:min(280px,calc(100vw - 16px))}
 }
+
+
+/* ===== revisione 4: scrivania minimale, barra a scomparsa, Times grassetto per i titoli ===== */
+.top h1,.grp h2,.shelf h2,.fd-t,.fo-t,.sheet h3,.login h1,.tile .nm,.hub-l a,.hub-l > span,.cal-m,.ctx-t{font-family:var(--title);font-weight:700;letter-spacing:-.01em}
+.grp h2 .n,.grp h2 .acts,.shelf h2 .acts{font-family:var(--sans)}
+.fd-n,.stat-n,.prat-dn{font-family:var(--sans);font-weight:500;letter-spacing:-.04em}
+.meta .prj,.prat-m .prj{font-family:var(--sans);font-weight:500;font-size:13px}
+.empty{font-family:var(--sans);font-size:14px}
+.card .nm{font-family:var(--sans);font-weight:600}
+.side-app{font-family:var(--sans);font-size:12px;color:var(--mute)}
+.hub-l em{font-family:var(--sans);font-size:12px;color:var(--mute)}
+
+/* barra laterale a scomparsa */
+.shell{display:block}
+.side{position:fixed;left:0;top:0;bottom:0;width:280px;height:auto;z-index:45;transform:translateX(-102%);transition:transform .28s cubic-bezier(.3,.8,.3,1);box-shadow:none;border-right:1px solid #222}
+body.nav-open .side{transform:none;box-shadow:8px 0 0 rgba(0,0,0,.06)}
+.nav-scrim{position:fixed;inset:0;z-index:44;background:rgba(251,248,245,.5);opacity:0;pointer-events:none;transition:opacity .2s}
+body.nav-open .nav-scrim{opacity:1;pointer-events:auto}
+.side-top{padding:0 22px 0 70px}
+.tbar{display:flex;align-items:center;gap:14px;padding:18px 0 6px;position:relative;z-index:46}
+.navbtn{width:40px;height:40px;border:1px solid #222;border-radius:12px;background:#fff;font-size:18px;line-height:1;display:grid;place-items:center;transition:transform .15s,box-shadow .15s}
+.navbtn:hover{box-shadow:3px 3px 0 #222;transform:translate(-1px,-1px)}
+body.nav-open .navbtn{position:fixed;left:16px;top:18px;z-index:47}
+.tbar .logo img{width:26px;height:26px}
+.tbar .rba{font-size:21px}
+.tbar-d{margin-left:auto;color:var(--mute);font-size:11px}
+.mtop,.tabbar{display:none !important}
+.content{max-width:1180px;margin:0 auto;padding:0 40px 80px}
+.content.wide{max-width:1180px}
+.top{margin-top:18px}
+.top h1{font-size:46px}
+.only-d{display:inline-flex}
+
+/* scrivania: solo cartelle, più piccole */
+.shelf{margin-top:26px}
+.shelf h2{font-size:19px;align-items:center;gap:10px}
+.shelf-add{width:26px;height:26px;border:1px solid #222;border-radius:8px;font-family:var(--sans);font-size:17px;line-height:1;display:grid;place-items:center;background:#fff;transition:transform .15s,box-shadow .15s}
+.shelf-add:hover{background:var(--accent);box-shadow:2px 2px 0 #222;transform:translate(-1px,-1px)}
+.folders{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:30px 18px;padding-top:20px}
+.folder{min-height:138px;padding:10px 12px 10px;gap:4px}
+.fd-n{font-size:26px}
+.fd-t{font-size:17px;line-height:1.1}
+.fd-s{font-size:11.5px}
+.fd-l li{font-size:11.5px}
+.fd-l li:nth-child(n+3){display:none}
+.fd-f .mono{font-size:9.5px}
+.content.wide main > .shelf:first-child{margin-top:14px}
+
+/* cartella aperta: ora su tutta la larghezza */
+.desk-ov{left:0;padding-top:40px}
+.fo-a .btn.sm.pri{box-shadow:2px 2px 0 #222}
+
+/* mappa a tutta pagina */
+.content.full{max-width:none;padding:0 24px 24px}
+.content.full .mapwrap{height:calc(100vh - 92px);overflow:auto;margin-top:8px}
+.map-leg{position:sticky;left:12px;bottom:12px;display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:-56px 0 12px 12px;padding:8px 12px;background:rgba(255,255,255,.9);border:1px solid #ddd;border-radius:12px;z-index:5;max-width:calc(100% - 24px)}
+.map-leg-t{font-size:12px;color:var(--ink2)}
+.mapwrap{border-radius:16px}
+
+/* calendario */
+.cal-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 12px}
+.cal-m{font-size:26px;min-width:220px;text-align:center}
+.cal-nav{width:34px;height:34px;border:1px solid #222;border-radius:10px;background:#fff}
+.cal-nav:hover{background:#222;color:#fff}
+.cal-hint{margin-left:auto;font-size:12.5px;color:var(--mute)}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid #222;border-radius:14px;overflow:hidden;background:#fff}
+.cal-wd{padding:7px 8px;border-bottom:1px solid #222;color:var(--mute);background:var(--paper)}
+.cal-d{min-height:108px;padding:6px 6px 8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:background .12s}
+.cal-d:nth-child(7n){border-right:0}
+.cal-d:hover{background:#fff6ef}
+.cal-d.out{background:#faf9f7;color:#bbb}
+.cal-d.past .cal-n{color:var(--mute)}
+.cal-n{font-size:12px;font-weight:600;width:24px;height:24px;display:grid;place-items:center;border-radius:50%}
+.cal-d.today .cal-n{background:var(--accent);color:#111}
+.cal-l{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cal-a,.cal-p{display:block;width:100%;text-align:left;font-size:11.5px;line-height:1.25;padding:3px 6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-a{background:color-mix(in srgb,var(--c) 75%,#fff);color:#111}
+.cal-a.p-alta{font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
+.cal-a.p-bassa{opacity:.75}
+.cal-p{border:1px solid #222;background:#fff;font-weight:600}
+.cal-p::before{content:"Pratica · ";font-family:var(--mono);font-weight:400;font-size:9.5px}
+.cal-more{font-size:10px;color:var(--mute);padding-left:4px}
+
+@media(max-width:899px){
+  .content{padding:0 16px 100px}
+  .content.full{padding:0 0 0}
+  .content.full .tbar{padding-left:16px;padding-right:16px}
+  .content.full .mapwrap{height:calc(100vh - 70px);border-radius:0;margin:0}
+  .tbar{padding-top:12px}
+  .top h1{font-size:34px}
+  .folders{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 12px}
+  .fab{bottom:calc(20px + env(safe-area-inset-bottom))}
+  .desk-ov{padding-top:8px}
+  .cal-d{min-height:64px;padding:4px 3px}
+  .cal-a,.cal-p{font-size:0;height:6px;padding:0;border-radius:3px}
+  .cal-p::before{content:none}
+  .cal-hint{margin-left:0;flex-basis:100%}
+  .cal-m{min-width:0;font-size:22px}
+  .map-leg-t{display:none}
+}
+
+body[data-view="mappa"] .fab{display:none}

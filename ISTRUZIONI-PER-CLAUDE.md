@@ -86,3 +86,10 @@ Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiorna
   Una cartella aperta (`#scrivania/<vista>` o `#scrivania/progetto/<id>`) si sovrappone alla scrivania (`deskOverlay`), la barra laterale resta. Si chiude con "Chiudi", con Esc o con un clic fuori. I link ai progetti aprono la cartella del progetto.
 - **Mappa solo da guardare** su fondo neutro: passando sopra un progetto o un'attività si evidenzia il gruppo; tasto destro (sul telefono: tieni premuto) apre `ctxMenu` con priorità, tipo, "metti in programma oggi", "segna come fatta", "modifica tutti i dettagli". Niente più trascinamento sulla mappa.
 - Attenzione ai nomi di classe già usati: `.pill` (stato), `.ghost` (copia durante il trascinamento). Per questo le etichette della mappa sono `.mp` e la cartella tratteggiata è `.fd-new`.
+
+### Revisione 4: scrivania minimale
+- Syne tolto. **Times New Roman grassetto solo per i titoli** (`--title`: pagine, sezioni, cartelle, schede, progetti sulla mappa); tutto il resto Inter, etichette in Plex Mono.
+- **Barra laterale nascosta**: si apre con la freccia in alto a sinistra (`setNav`), si chiude con la freccia, un clic fuori o scegliendo una voce. Contiene: Scrivania, Mappa, Calendario; anagrafiche (progetti, pratiche, clienti); persone e accessi. Niente più barra in basso sul telefono.
+- **Scrivania** = home: solo le cartelle (più piccole), testata minima con logo e data piccola a destra; `+` accanto a "Progetti in corso" crea un progetto. Le cartelle aperte hanno i pulsanti "+ Attività", "+ Pratica", "Modifica" secondo il contenuto.
+- **Mappa** a tutta pagina, solo visualizzazione: attività disposte a cerchi intorno al progetto per priorità (alta vicina, bassa lontana); legenda fissa in basso; tasto destro / pressione lunga per modificare.
+- **Calendario** (`#calendario`, `vCalendario`): mese con le scadenze di attività e pratiche, clic su un giorno per creare un'attività con quella scadenza; "Scarica le scadenze (.ics)" (`scaricaIcs`) per Google/Apple/Outlook. Prossimo passo possibile: feed .ics sempre aggiornato tramite una Edge Function di Supabase con un indirizzo segreto per persona.

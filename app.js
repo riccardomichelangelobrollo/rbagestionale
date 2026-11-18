@@ -21,7 +21,7 @@ const STATI_PRATICA = ['in preparazione','depositata','integrazioni richieste','
 const STATI_PROGETTO = ['attivo','in pausa','chiuso'];
 const TABLES = ['membri','clienti','progetti','pratiche','attivita'];
 const VIEWS = [['scrivania','scrivania'],['oggi','oggi'],['mappa','mappa'],['settimana','prossimi 7 giorni'],['attesa','in attesa di altri'],['fatte','completate'],
-  ['progetti','progetti'],['pratiche','pratiche edilizie'],['clienti','clienti'],['studio','persone e accessi']];
+  ['progetti','progetti'],['pratiche','pratiche edilizie'],['clienti','clienti'],['studio','persone e accessi'],['calendario','calendario']];
 
 /* ---------------- utilità ---------------- */
 const pad = n => String(n).padStart(2,'0');
@@ -62,7 +62,7 @@ const catStyle = id => `--c:var(--c-${id});--ci:var(--c-${id}-ink)`;
 let toastT;
 function toast(msg){ msg = cap(String(msg)); let t = $('.toast'); if(!t){ t = h('div',{class:'toast'}); document.body.append(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(()=>t.remove(), 2600); }
 const cap = s => s ? s.charAt(0).toLocaleUpperCase('it-IT') + s.slice(1) : s;
-const CAP_SEL = '.fd-t,.fd-s,.fd-l li,.fo-t,.fo-s,.ctx-t,.ctx-l,.ctx-i,.shelf .acts,h1,h2 .t,h3,.nl-t,.nl-h,.ng-t,.chip,.btn,.tab span,.scope button,.stat-l,.eyebrow,.acts,.acts button,.f > label,.f > .lb,.tog,.qd button,.link,.meta .cat,.meta span,.tt,.mp-t,.mp-m,.empty,.side-app,.kv .k,.pill,.seg button,.quick button,.me-r,.waitline span,.waitline button,.cnt span,.prat-st,.prat-m .mono,.prat-dl,.tile-foot .due,.card .sub,.hub-l span,.map-key span,.prio-t,.login p,.confirm,.day,.sub,option';
+const CAP_SEL = '.cal-m,.cal-wd,.cal-hint,.tbar-d,.fd-t,.fd-s,.fd-l li,.fo-t,.fo-s,.ctx-t,.ctx-l,.ctx-i,.shelf .acts,h1,h2 .t,h3,.nl-t,.nl-h,.ng-t,.chip,.btn,.tab span,.scope button,.stat-l,.eyebrow,.acts,.acts button,.f > label,.f > .lb,.tog,.qd button,.link,.meta .cat,.meta span,.tt,.mp-t,.mp-m,.empty,.side-app,.kv .k,.pill,.seg button,.quick button,.me-r,.waitline span,.waitline button,.cnt span,.prat-st,.prat-m .mono,.prat-dl,.tile-foot .due,.card .sub,.hub-l span,.map-key span,.prio-t,.login p,.confirm,.day,.sub,option';
 function capAll(root){
   root.querySelectorAll(CAP_SEL).forEach(el => {
     const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -156,11 +156,11 @@ addEventListener('hashchange', () => { const wasDesk = route.desk; readHash(); i
 /* ---------------- render ---------------- */
 const LABEL = Object.fromEntries(VIEWS);
 const NAV_GROUPS = [
-  ['da fare',      ['scrivania','oggi','mappa','settimana','attesa','fatte']],
+  ['',             ['scrivania','mappa','calendario']],
   ['anagrafiche',  ['progetti','pratiche','clienti']],
   ['impostazioni', ['studio']]
 ];
-const NAV_HINT = {scrivania:'tutte le cartelle', oggi:'la giornata e la timeline', mappa:'tutte le attività per progetto', settimana:'le scadenze in arrivo',
+const NAV_HINT = {scrivania:'le cartelle di lavoro', calendario:'scadenze e collegamento al tuo calendario', oggi:'la giornata e la timeline', mappa:'tutto quello che c’è da fare, in un colpo d’occhio', settimana:'le scadenze in arrivo',
   attesa:'cose ferme per altri', fatte:'lo storico', progetti:'incarichi e cantieri', pratiche:'CILA, SCIA, PdC…',
   clienti:'anagrafica', studio:'chi usa il gestionale'};
 const TABS = ['scrivania','oggi','mappa','progetti'];
@@ -218,22 +218,26 @@ function render(){
   const pageView = route.desk ? 'scrivania' : route.view;
   const prevOv = $('.fo'); if(prevOv) ovScroll = prevOv.scrollTop;
   let n = 0;
-  const side = h('aside',{class:'side'},
+  const side = h('aside',{class:'side',onclick:e=>{ if(e.target.closest('a.nl')) setNav(false); }},
     h('div',{class:'side-top'}, logo(), h('div',{class:'side-app mono'},'gestionale dello studio')),
     scopeToggle(),
-    h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, h('div',{class:'ng-t mono'},g),
+    h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, g ? h('div',{class:'ng-t mono'},g) : null,
       ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id,title:NAV_HINT[id]},
         h('span',{class:'nl-t'}, LABEL[id], h('span',{class:'nl-h'},NAV_HINT[id])),
         counts[id] ? h('span',{class:'nl-c mono'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null))))),
     h('div',{class:'side-foot'}, meBox(), h('button',{class:'link mono',onclick:logout},'esci')));
   let title = LABEL[pageView] || '', eyebrow = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   if(pageView==='progetto'){ const p = get('progetti',route.id); title = p ? p.nome : 'progetto'; eyebrow = h('a',{href:'#progetti'},'← progetti'); }
-  const content = h('div',{class:'content'+(['oggi','mappa','scrivania'].includes(pageView)?' wide':'')},
-    h('header',{class:'mtop'}, logo(), scopeToggle()),
+  const content = h('div',{class:'content'+(['oggi','scrivania','calendario'].includes(pageView)?' wide':'')+(pageView==='mappa'?' full':'')},
+    h('header',{class:'tbar'},
+      h('button',{class:'navbtn','aria-label':navOpen?'Chiudi il menu':'Apri il menu',onclick:()=>setNav(!navOpen)}, navOpen ? '←' : '→'),
+      logo(),
+      h('span',{class:'tbar-d mono'}, new Date().toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}))));
+  if(!['scrivania','mappa'].includes(pageView)) content.append(
     h('header',{class:'top'+(pageView==='progetto'?' long':'')},
-      h('div',{class:'top-t'}, h('div',{class:'eyebrow mono'},eyebrow), h('h1',null,title)),
-      h('button',{class:'btn pri only-d',onclick:fabAction}, newLabel(), ARROW())));
-  if(['oggi','settimana','attesa','fatte','mappa'].includes(pageView)){
+      h('div',{class:'top-t'}, h('h1',null,title)),
+      ['progetti','pratiche','clienti','studio','calendario','progetto'].includes(pageView) || pageView === 'oggi' ? h('button',{class:'btn pri',onclick:fabAction}, newLabel(), ARROW()) : null));
+  if(['oggi','settimana','attesa','fatte'].includes(pageView)){
     if(pageView !== 'fatte') content.append(quickAdd());
     const lg = h('div',{class:'legend'+(catFilter?' filtered':'')});
     CATS.forEach(c => lg.append(h('button',{class:'chip'+(catFilter===c.id?' on':''),style:catStyle(c.id),
@@ -245,19 +249,18 @@ function render(){
   const curView = route.view; if(route.desk) route.view = 'scrivania';
   VIEWFN[route.view](main);
   route.view = curView;
-  const more = !TABS.includes(active);
-  const tabbar = h('nav',{class:'tabbar'},
-    TABS.map(id => h('a',{class:'tab'+(active===id?' on':''),href:'#'+id}, icon(id), h('span',null,id==='pratiche'?'pratiche':LABEL[id]),
-      counts[id] && id!=='mappa' ? h('span',{class:'tb-b'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null)),
-    h('button',{class:'tab'+(more?' on':''),onclick:sheetAltro}, icon('altro'), h('span',null, more ? LABEL[active] : 'altro')));
-  app.append(h('div',{class:'shell'}, side, content), tabbar);
+  app.append(h('div',{class:'shell'}, side, content), h('div',{class:'nav-scrim',onclick:()=>setNav(false)}));
+  document.body.classList.toggle('nav-open', navOpen);
+  document.body.dataset.view = pageView;
   if(route.desk && route.view !== 'scrivania'){ app.append(deskOverlay()); const fo = $('.fo'); if(fo) fo.scrollTop = ovScroll; document.body.classList.add('ov-open'); } else document.body.classList.remove('ov-open');
   if(!$('.fab')) document.body.append(h('button',{class:'fab','aria-label':'nuovo',onclick:fabAction},'+'));
   capAll(app);
   if(renderKeepScroll){ scrollTo(0, sy); }
 }
 let renderKeepScroll = true;
-const VIEWFN = {scrivania:vScrivania, oggi:vOggi, mappa:vMappa, settimana:vSett, progetti:vProgetti, progetto:vProgetto, attesa:vAttesa, pratiche:vPratiche, clienti:vClienti, fatte:vFatte, studio:vStudio, generali:vGenerali};
+let navOpen = false;
+function setNav(v){ navOpen = v; document.body.classList.toggle('nav-open', v); const b = $('.navbtn'); if(b){ b.textContent = v ? '←' : '→'; b.setAttribute('aria-label', v ? 'Chiudi il menu' : 'Apri il menu'); } }
+const VIEWFN = {scrivania:vScrivania, oggi:vOggi, mappa:vMappa, settimana:vSett, progetti:vProgetti, progetto:vProgetto, attesa:vAttesa, pratiche:vPratiche, clienti:vClienti, fatte:vFatte, studio:vStudio, generali:vGenerali, calendario:vCalendario};
 function sheetAltro(){
   openSheet(h('h3',null,'menu'),
     NAV_GROUPS.map(([g,ids]) => h('div',{class:'f'}, h('span',{class:'lb mono'},g),
@@ -339,6 +342,8 @@ function onDrop(a, where, idx, order){
   }
 }
 function fabAction(){
+  if(route.desk && route.view === 'progetto') return sheetAttivita(null,{progetto_id:route.id});
+  if(route.view === 'calendario') return sheetAttivita(null,{scadenza:today()});
   if(route.view === 'clienti') return sheetCliente();
   if(route.view === 'pratiche') return sheetPratica();
   if(route.view === 'progetti') return sheetProgetto();
@@ -457,8 +462,8 @@ function vScrivania(el){
   const wait = open.filter(isWaiting).sort(sortA);
   const pr = praticheAperte().sort(sortA), integr = pr.filter(p => p.stato === 'integrazioni richieste');
   const lateN = todays.filter(a => a.scadenza && diff(a.scadenza) < 0).length;
-  const shelf = (title, hint, kids) => h('section',{class:'shelf'}, h('h2',null, h('span',{class:'t'},title), h('span',{class:'acts'},hint)), h('div',{class:'folders'}, kids));
-  el.append(shelf('La giornata', 'Apri una cartella per lavorarci', [
+  const shelf = (title, hint, kids, add) => h('section',{class:'shelf'}, h('h2',null, h('span',{class:'t'},title), add ? h('button',{class:'shelf-add',onclick:add.fn,title:add.title,'aria-label':add.title},'+') : null, h('span',{class:'acts'},hint)), h('div',{class:'folders'}, kids));
+  el.append(shelf('La giornata', '', [
     folder({href:'#scrivania/oggi', title:'Oggi', color:'#F06D3B', count:counts.oggi||0, hot: lateN > 0,
       sub: lateN ? lateN + (lateN === 1 ? ' scaduta' : ' scadute') : (timed.length ? timed.length + ' con un orario' : 'Da organizzare'),
       items: timed.map(a => a.ora_oggi + '  ' + a.titolo).concat(todays.filter(a => !timed.includes(a)).map(a => a.titolo)),
@@ -480,7 +485,7 @@ function vScrivania(el){
     return folder({href:'#scrivania/progetto/'+p.id, title:p.nome, color:FOLDER_COLORS[i % FOLDER_COLORS.length], count:its.length,
       sub:[cl && cl.nome, p.comune].filter(Boolean).join(' · '), items: its.map(a => a.titolo), hot: prox && diff(prox) < 0,
       foot: prox ? dueLabel(prox) : 'Nessuna scadenza'});
-  }).concat([folder({ghost:true, title:'Nuovo progetto', foot:'Crea', onclick:()=>sheetProgetto()})])));
+  }), {fn:()=>sheetProgetto(), title:'Nuovo progetto'}));
   const orph = open.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
   const doneW = att().filter(a => a.fatta && a.fatta_il && diff(ds(new Date(a.fatta_il))) > -7);
   const paused = progetti().filter(p => p.stato === 'in pausa');
@@ -516,11 +521,63 @@ function deskOverlay(){
       h('header',{class:'fo-h'},
         h('div',{style:'min-width:0'}, h('div',{class:'fo-s mono'}, f.sub), h('div',{class:'fo-t'}, f.title)),
         h('div',{class:'fo-a'},
-          route.view === 'progetto' ? h('button',{class:'btn sm',onclick:()=>sheetProgetto(get('progetti',route.id))},'Modifica') : null,
+          ['oggi','settimana','attesa','generali','progetto'].includes(route.view) ? h('button',{class:'btn sm pri',onclick:()=>sheetAttivita(null, route.view==='progetto' ? {progetto_id:route.id} : route.view==='oggi' ? {in_oggi:today()} : null)},'+ Attività') : null,
+        ['pratiche','progetto'].includes(route.view) ? h('button',{class:'btn sm',onclick:()=>{ const p = get('progetti',route.id); sheetPratica(null, p ? {progetto_id:p.id, comune:p.comune} : null); }},'+ Pratica') : null,
+        route.view === 'progetto' ? h('button',{class:'btn sm',onclick:()=>sheetProgetto(get('progetti',route.id))},'Modifica') : null,
           h('button',{class:'fo-x',onclick:closeDesk,'aria-label':'Chiudi'},'Chiudi ×'))),
       body));
   openFrom = null;
   return h('div',{class:'desk-ov',onclick:e=>{ if(e.target === e.currentTarget) closeDesk(); }}, panel);
+}
+
+/* ----- calendario: scadenze del mese e collegamento al calendario personale ----- */
+let calMonth = null;
+function vCalendario(el){
+  const td = today(); if(!calMonth) calMonth = td.slice(0,7);
+  const [Y, M] = calMonth.split('-').map(Number);
+  const first = new Date(Y, M-1, 1), start = new Date(first); start.setDate(1 - ((first.getDay() + 6) % 7));
+  const shift = n => { const d = new Date(Y, M-1+n, 1); calMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); render(); };
+  const acts = att().filter(a => a.scadenza && !a.fatta && !a.ogni_giorno);
+  const prs = list('pratiche').filter(p => p.scadenza && p.stato !== 'conclusa');
+  el.append(h('div',{class:'cal-h'},
+    h('button',{class:'cal-nav',onclick:()=>shift(-1),'aria-label':'Mese precedente'},'←'),
+    h('div',{class:'cal-m'}, first.toLocaleDateString('it-IT',{month:'long',year:'numeric'})),
+    h('button',{class:'cal-nav',onclick:()=>shift(1),'aria-label':'Mese successivo'},'→'),
+    calMonth !== td.slice(0,7) ? h('button',{class:'link',onclick:()=>{ calMonth = td.slice(0,7); render(); }},'torna a oggi') : null,
+    h('span',{class:'cal-hint'},'Clic su un giorno per fissare una scadenza')));
+  const grid = h('div',{class:'cal'});
+  ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].forEach(d => grid.append(h('div',{class:'cal-wd mono'}, d)));
+  for(let i = 0; i < 42; i++){
+    const d = new Date(start); d.setDate(start.getDate() + i); const k = ds(d);
+    if(i >= 35 && d.getMonth() !== M-1) break;
+    const its = acts.filter(a => a.scadenza === k).sort((a,b) => PRIO.indexOf(prioOf(b)) - PRIO.indexOf(prioOf(a)));
+    const ps = prs.filter(p => p.scadenza === k);
+    const chips = ps.map(p => h('button',{class:'cal-p',onclick:e=>{ e.stopPropagation(); sheetPratica(p); }}, p.tipo))
+      .concat(its.map(a => h('button',{class:'cal-a p-'+prioOf(a),style:catStyle(CATMAP[a.categoria]?a.categoria:'stu'),onclick:e=>{ e.stopPropagation(); sheetAttivita(a); }}, a.titolo)));
+    grid.append(h('div',{class:'cal-d'+(d.getMonth() !== M-1 ? ' out' : '')+(k === td ? ' today' : '')+(k < td ? ' past' : ''),
+        onclick:()=>sheetAttivita(null,{scadenza:k})},
+      h('div',{class:'cal-n'}, d.getDate()), h('div',{class:'cal-l'}, chips.slice(0,4), chips.length > 4 ? h('span',{class:'cal-more mono'},'+'+(chips.length-4)) : null)));
+  }
+  el.append(grid);
+  el.append(h('section',{class:'grp'}, h('h2',null, h('span',{class:'t'},'Collega il tuo calendario')),
+    h('div',{class:'panel'},
+      h('p',null,'Scarica le scadenze di attività e pratiche in un file .ics e aprilo con Google Calendar, Calendario di Apple o Outlook: compariranno come eventi di un giorno, con il progetto nel titolo.'),
+      h('div',{class:'btns',style:'margin-top:0'}, h('button',{class:'btn pri',onclick:scaricaIcs},'Scarica le scadenze (.ics)')),
+      h('p',{class:'hint',style:'margin:12px 0 0'},'Il file è una fotografia di oggi: per avere le scadenze sempre aggiornate nel calendario serve un collegamento automatico, che si può attivare in seguito.'))));
+}
+function scaricaIcs(){
+  const esc = s => String(s||'').replace(/\\/g,'\\\\').replace(/[,;]/g, m => '\\'+m).replace(/\n/g,'\\n');
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').slice(0,15) + 'Z';
+  const ev = (uid, d, title, desc) => { const e = addDays(d, 1).replace(/-/g,'');
+    return ['BEGIN:VEVENT','UID:'+uid+'@gestionale-rba','DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+d.replace(/-/g,''),'DTEND;VALUE=DATE:'+e,'SUMMARY:'+esc(title), desc ? 'DESCRIPTION:'+esc(desc) : null,'END:VEVENT'].filter(Boolean).join('\r\n'); };
+  const out = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//RBA//Gestionale//IT','CALSCALE:GREGORIAN','X-WR-CALNAME:Scadenze RBA'];
+  att().filter(a => a.scadenza && !a.fatta && !a.ogni_giorno).forEach(a => { const p = get('progetti', a.progetto_id);
+    out.push(ev(a.id, a.scadenza, (p ? p.nome + ' · ' : '') + a.titolo, a.note)); });
+  list('pratiche').filter(p => p.scadenza && p.stato !== 'conclusa').forEach(x => { const p = get('progetti', x.progetto_id);
+    out.push(ev(x.id, x.scadenza, 'Pratica ' + x.tipo + (p ? ' · ' + p.nome : ''), [x.stato, x.protocollo ? 'prot. ' + x.protocollo : ''].filter(Boolean).join(' · '))); });
+  out.push('END:VCALENDAR');
+  const a = h('a',{href: URL.createObjectURL(new Blob([out.join('\r\n')], {type:'text/calendar'})), download:'scadenze-rba.ics'});
+  document.body.append(a); a.click(); a.remove(); toast('File delle scadenze scaricato');
 }
 
 /* ----- menu contestuale (tasto destro, o dito tenuto premuto) ----- */
@@ -557,13 +614,10 @@ function vMappa(el){
     .filter(g => g.its.length || g.p.stato === 'attivo');
   const orph = items.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
   if(orph.length) groups.push({p:null, its:orph});
-  el.append(h('div',{class:'map-key'},
-    h('span',{class:'k-pill p-alta'},'Alta'), h('span',{class:'k-pill p-media'},'Media'), h('span',{class:'k-pill p-bassa'},'Bassa'),
-    h('span',{class:'mute'},'La grandezza dice la priorità. Passa sopra un progetto per evidenziarlo; tasto destro su un’attività (sul telefono tienila premuta) per cambiare priorità, tipo e altro.')));
   if(!groups.length) return empty(el,'Nessuna attività aperta.');
-  const W = Math.max(300, Math.min(innerWidth - (innerWidth >= 900 ? 264 + 96 : 32), 1304));
+  const W = Math.max(320, innerWidth - (innerWidth >= 900 ? 48 : 0));
   const cols = W < 700 ? 1 : W < 1250 ? 2 : 3, cw = W / cols;
-  const lay = groups.map(g => { const n = g.its.length; const rx = Math.min(cw*0.36, 95 + n*16); const ry = Math.max(70, rx*0.62 + n*6); return {...g, rx, ry, hgt: Math.max(260, ry*2*1.2 + 130)}; });
+  const lay = groups.map(g => { const n = g.its.length; const rx = Math.min(cw*0.30, 80 + n*12); const ry = Math.max(60, rx*0.6 + n*5); return {...g, rx, ry, hgt: Math.max(260, ry*2*1.5 + 110)}; });
   const rowsH = []; lay.forEach((g,i) => { const r = Math.floor(i/cols); rowsH[r] = Math.max(rowsH[r]||0, g.hgt); });
   let H = 40; const rowTop = rowsH.map(hh => { const t = H; H += hh; return t; }); H += 40;
   const cv = h('div',{class:'mapcv',style:`height:${H}px`});
@@ -585,12 +639,13 @@ function vMappa(el){
     const hx = cw*(c+0.5) + ((seed % 21) - 10) / 100 * cw * (small ? .3 : 1), hy = rowTop[r] + rowsH[r]/2 + ((seed % 17) - 8) * 3;
     const hb = {g, x:hx, y:hy}; hubs.push(hb);
     nodes.push({fixed:true, x:hx + 80, y:hy + 22, w:170, h:44}, {fixed:true, x:hx, y:hy, w:24, h:24});
-    const n = g.its.length, off = (seed % 360) * Math.PI / 180;
-    g.its.slice().sort((a,b) => PRIO.indexOf(prioOf(b)) - PRIO.indexOf(prioOf(a)) || sortA(a,b)).forEach((a, k) => {
-      const ang = off + k * 2*Math.PI / Math.max(n,1), ring = k % 2 ? 1.2 : 0.85, saved = null, bx = box(a);
-      nodes.push({a, hb, fixed: !!saved, w: bx.w, h: bx.h,
-        x: saved ? hx + saved.dx : hx + Math.cos(ang) * g.rx * ring,
-        y: saved ? hy + saved.dy : hy + Math.sin(ang) * g.ry * ring});
+    const off = (seed % 360) * Math.PI / 180, RING = {alta:.5, media:1, bassa:1.45};
+    PRIO.slice().reverse().forEach((pr, ri) => {
+      const arr = g.its.filter(a => prioOf(a) === pr).sort(sortA);
+      arr.forEach((a, k) => {
+        const ang = off + ri * .6 + k * 2*Math.PI / arr.length, bx = box(a);
+        nodes.push({a, hb, fixed:false, w: bx.w, h: bx.h, x: hx + Math.cos(ang) * g.rx * RING[pr], y: hy + Math.sin(ang) * g.ry * RING[pr]});
+      });
     });
   });
   for(let it = 0; it < 160; it++){
@@ -633,7 +688,10 @@ function vMappa(el){
     lp = {x, y, t: setTimeout(() => { lp = null; focus(t.dataset.hub, id); ctxMenu(get('attivita', id), x, y); }, 480)}; });
   const lpCancel = e => { if(lp && (e.type !== 'pointermove' || Math.hypot(e.clientX-lp.x, e.clientY-lp.y) > 8)){ clearTimeout(lp.t); lp = null; } };
   ['pointerup','pointercancel','pointermove'].forEach(ev => cv.addEventListener(ev, lpCancel));
-  el.append(h('div',{class:'mapwrap'}, cv));
+  el.append(h('div',{class:'mapwrap'}, cv,
+    h('div',{class:'map-leg'},
+      h('span',{class:'k-pill p-alta'},'Alta'), h('span',{class:'k-pill p-media'},'Media'), h('span',{class:'k-pill p-bassa'},'Bassa'),
+      h('span',{class:'map-leg-t'},'Priorità: più è grande, più è vicina al progetto. Tasto destro per modificare.'))));
 }
 function pill(a, x, y){
   const cat = CATMAP[a.categoria] ? a.categoria : 'stu', pr = prioOf(a);
