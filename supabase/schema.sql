@@ -91,6 +91,10 @@ alter table public.attivita add column if not exists ordine double precision; --
 alter table public.attivita drop constraint if exists attivita_categoria_check;
 alter table public.attivita add constraint attivita_categoria_check check (categoria in ('pa','can','cont','prog','cli','amm','stu'));
 
+-- orario della scadenza ('HH:MM', facoltativo): aggiunto il 18/11/2026
+alter table public.attivita add column if not exists scadenza_ora text;
+alter table public.pratiche add column if not exists scadenza_ora text;
+
 create index if not exists attivita_progetto_idx on public.attivita(progetto_id);
 create index if not exists attivita_assegnata_idx on public.attivita(assegnata_a);
 create index if not exists pratiche_progetto_idx on public.pratiche(progetto_id);

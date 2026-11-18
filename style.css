@@ -493,3 +493,11 @@ body.ov-open{overflow:hidden}
 .scad.late .scad-d{background:var(--accent);border-color:var(--accent);color:#111}
 .scad.late .scad-d span{color:#111}
 .scad-b{flex:1;min-width:0}
+
+/* orario della scadenza */
+.due-row{display:flex;gap:14px;align-items:flex-end}
+.f .due-row input[type=date]{flex:1;min-width:0}
+.f .due-row input[type=time]{flex:none;width:118px}
+.scad-h{flex:none;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;padding:3px 7px;border-radius:7px;background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.12)}
+.scad.late .scad-h{border-color:var(--accent);color:var(--accent)}
+.scad-h.none{visibility:hidden}
