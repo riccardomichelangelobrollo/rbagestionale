@@ -173,6 +173,7 @@ const ICONS = {
   altro:'<path d="M4 7h16M4 12h16M4 17h16"/>'
 };
 function icon(n){ const s = h('span',{class:'ico','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">'+ICONS[n]+'</svg>'; return s; }
+const ICON_IMG = () => { const s = h('span',{class:'ic-img','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><circle cx="5.5" cy="6.5" r="1.3"/><path d="M2 12l4-3.5 3 2.5 2-1.5 3.5 3"/></svg>'; return s; };
 const ARROW = () => { const s = h('span',{class:'arr','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 21 L21 3 M8 3 H21 V16"/></svg>'; return s; };
 function logo(){
   return h('a',{class:'logo',href:'#scrivania','aria-label':'Scrivania'},
@@ -357,7 +358,7 @@ function quickAdd(){
 }
 function nuovaAttivita(p){
   return Object.assign({id:uuid(), titolo:'', progetto_id:null, categoria: catFilter || lastCat, scadenza:null, ogni_giorno:false,
-    fatta:false, fatta_il:null, fatta_oggi:null, in_oggi:null, ora_oggi:null, ordine:null, priorita:'media', attesa_chi:'', attesa_cosa:'', note:'',
+    fatta:false, fatta_il:null, fatta_oggi:null, in_oggi:null, ora_oggi:null, ordine:null, priorita:'media', allegati:[], attesa_chi:'', attesa_cosa:'', note:'',
     assegnata_a: me.id, creata_da: me.id, created_at: new Date().toISOString()}, p||{});
 }
 
@@ -598,6 +599,7 @@ addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('.ctx')) return 
 /* ----- mappa: piano libero, progetti come nodi, attività come etichette sfumate ----- */
 let mapDragging = false;
 const hashN = s => { let x = 0; for(const c of String(s)) x = (x*31 + c.charCodeAt(0)) | 0; return Math.abs(x); };
+let mapView = null;
 let mapShow = (() => { try { const v = JSON.parse(lsGet('mapshow')); if(Array.isArray(v) && v.length) return new Set(v); } catch(e){} return new Set(PRIO); })();
 function vMappa(el){
   const all = att().filter(a => !isDone(a) && !a.ogni_giorno);
@@ -613,17 +615,17 @@ function vMappa(el){
   el.append(wrap);
   if(!groups.length){ wrap.append(h('div',{class:'empty'},'Nessuna attività con questa priorità.')); return; }
   const W = Math.max(300, innerWidth - (innerWidth >= 900 ? 82 : 18)), Hv = Math.max(420, innerHeight - 92);
-  const small = W < 700, K = 1;
+  const small = W < 700, K = 1, ASP = Math.sqrt(Math.max(1, W / Hv));
   const SZ = {alta:{fs:19,mw:230,px:20,py:11}, media:{fs:14,mw:190,px:14,py:7}, bassa:{fs:12,mw:160,px:10,py:4}};
   const box = a => { const z = SZ[prioOf(a)], t = (a.titolo||'').length * z.fs * .54, inner = z.mw - 2*z.px;
     const lines = Math.max(1, Math.ceil(t / inner)); const meta = prioOf(a) !== 'bassa' && (a.scadenza || isWaiting(a));
     return {w: Math.min(z.mw, t + 2*z.px) + 16, h: lines * z.fs * 1.18 + 2*z.py + (meta ? 14 : 0) + 16}; };
-  const REST = {alta:105*K, media:165*K, bassa:225*K};
+  const REST = {alta:80*K, media:125*K, bassa:165*K};
   // 1. nodi: progetti su una spirale aurea attorno al centro, attività sui loro anelli
   const hubs = [], nodes = [];
   groups.forEach((g, i) => {
     const seed = hashN(g.p ? g.p.id : 'none'), r = 230 * K * Math.sqrt(i), a0 = i * 2.39996;
-    const hb = {hub:true, g, x: small ? 0 : Math.cos(a0) * r, y: small ? i * 520 * K : Math.sin(a0) * r, rad: (REST.bassa + 40) * Math.min(1, .55 + g.its.length * .06)};
+    const hb = {hub:true, g, x: small ? 0 : Math.cos(a0) * r * ASP, y: small ? i * 520 * K : Math.sin(a0) * r / ASP, rad: (REST.bassa + 40) * Math.min(1, .55 + g.its.length * .06)};
     hubs.push(hb);
     PRIO.slice().reverse().forEach((pr, ri) => {
       const arr = g.its.filter(a => prioOf(a) === pr).sort(sortA);
@@ -634,7 +636,7 @@ function vMappa(el){
   // 2. assestamento organico: molle verso il proprio progetto, repulsione tra tutti, gravità verso il centro
   const ext = n => Math.max(n.w, n.h) * .5;
   for(let it = 0, T = 1; it < 320; it++, T *= .992){
-    hubs.forEach(hb => { hb.fx = -hb.x * (small ? .05 : .012); hb.fy = small ? 0 : -hb.y * .012; });
+    hubs.forEach(hb => { hb.fx = -hb.x * (small ? .05 : .012 / ASP); hb.fy = small ? 0 : -hb.y * .012 * ASP * ASP; });
     nodes.forEach(n => { n.fx = 0; n.fy = 0; const dx = n.x - n.hb.x, dy = n.y - n.hb.y, d = Math.hypot(dx, dy) || 1, k = (d - REST[n.pr]) * .06;
       n.fx -= dx / d * k; n.fy -= dy / d * k; n.hb.fx += dx / d * k * .25; n.hb.fy += dy / d * k * .25; });
     for(let i = 0; i < hubs.length; i++) for(let j = i+1; j < hubs.length; j++){
@@ -651,7 +653,7 @@ function vMappa(el){
   // 2b. ogni progetto nel suo cerchio; i cerchi non si toccano (si sposta tutto il gruppo)
   const circ = hb => { const ns = nodes.filter(n => n.hb === hb);
     const cx = (hb.x + 60 + ns.reduce((t,n) => t + n.x, 0)) / (ns.length + 1), cy = (hb.y + 10 + ns.reduce((t,n) => t + n.y, 0)) / (ns.length + 1);
-    const r = Math.max(120, Math.hypot(hb.x - cx, hb.y - cy) + 30, Math.hypot(hb.x + 170 - cx, hb.y + 30 - cy), ...ns.map(n => Math.hypot(n.x - cx, n.y - cy) + Math.hypot(n.w, n.h) / 2 - 6)) + 16;
+    const r = Math.max(100, Math.hypot(hb.x - cx, hb.y - cy) + 30, Math.hypot(hb.x + 170 - cx, hb.y + 30 - cy), ...ns.map(n => Math.hypot(n.x - cx, n.y - cy) + Math.hypot(n.w, n.h) / 2 - 6)) + 10;
     return {hb, cx, cy, r}; };
   const shiftG = (hb, dx, dy) => { hb.x += dx; hb.y += dy; nodes.forEach(n => { if(n.hb === hb){ n.x += dx; n.y += dy; } }); };
   for(let it = 0; it < 120; it++){ let moved = false; const cs = hubs.map(circ);
@@ -660,7 +662,7 @@ function vMappa(el){
       if(d < m){ const f = (m - d) / 2 + .5; shiftG(A.hb, -dx/d*f, -dy/d*f); shiftG(B.hb, dx/d*f, dy/d*f); moved = true; } }
     if(!moved) break; }
   // 3. nessuna sovrapposizione, etichette dei progetti comprese
-  const rects = nodes.concat(hubs.map(hb => ({fixed:true, x:hb.x + 78, y:hb.y + 20, w:170, h:44})), hubs.map(hb => ({fixed:true, x:hb.x, y:hb.y, w:22, h:22})));
+  const rects = nodes.concat(hubs.map(hb => ({fixed:true, x:hb.x + 12 + Math.max(110, (hb.g.p ? hb.g.p.nome.length : 8) * 8.2 + 24) / 2, y:hb.y + 31, w:Math.max(110, (hb.g.p ? hb.g.p.nome.length : 8) * 8.2 + 24) + 12, h:60})), hubs.map(hb => ({fixed:true, x:hb.x, y:hb.y, w:22, h:22})));
   for(let it = 0; it < 200; it++){ let moved = false;
     for(let i = 0; i < rects.length; i++) for(let j = i+1; j < rects.length; j++){
       const A = rects[i], B = rects[j]; if(A.fixed && B.fixed) continue;
@@ -673,12 +675,11 @@ function vMappa(el){
   const circles = hubs.map(circ);
   const minX = Math.min(...rects.map(r => r.x - r.w/2), ...circles.map(c => c.cx - c.r)), maxX = Math.max(...rects.map(r => r.x + r.w/2), ...circles.map(c => c.cx + c.r));
   const minY = Math.min(...rects.map(r => r.y - r.h/2), ...circles.map(c => c.cy - c.r)), maxY = Math.max(...rects.map(r => r.y + r.h/2), ...circles.map(c => c.cy + c.r));
-  const H = Math.max(Hv, maxY - minY + 110), ox = W/2 - (minX + maxX)/2, oy = H/2 - (minY + maxY)/2 + 20;
-  const sc = Math.min(1, (W - 24) / (maxX - minX));
-  const X = x => W/2 + (x + ox - W/2) * sc, Y = y => sc < 1 ? 50 + (y + oy - H/2 + (maxY - minY)/2 + 0) * sc : y + oy;
-  const cv = h('div',{class:'mapcv',style:`height:${H * (sc < 1 ? sc : 1) + (sc < 1 ? 60 : 0)}px;--sc:${sc}`});
+  const CW = maxX - minX + 80, CH = maxY - minY + 80, ox = 40 - minX, oy = 40 - minY, sc = 1, W2 = CW, H = CH;
+  const X = x => x + ox, Y = y => y + oy;
+  const cv = h('div',{class:'mapcv',style:`width:${CW}px;height:${CH}px`});
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('class','mapsvg'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class','mapsvg'); svg.setAttribute('width', CW); svg.setAttribute('height', CH); svg.setAttribute('viewBox', `0 0 ${CW} ${CH}`);
   const actives = progetti().filter(x => x.stato === 'attivo');
   circles.forEach(c => { const p = c.hb.g.p, i = p ? actives.indexOf(p) : -1, col = i >= 0 ? FOLDER_COLORS[i % FOLDER_COLORS.length] : '#cfcac3';
     const R = c.r * sc;
@@ -707,7 +708,41 @@ function vMappa(el){
     lp = {x, y, t: setTimeout(() => { lp = null; focus(t.dataset.hub, id); ctxMenu(get('attivita', id), x, y); }, 480)}; });
   const lpCancel = e => { if(lp && (e.type !== 'pointermove' || Math.hypot(e.clientX-lp.x, e.clientY-lp.y) > 8)){ clearTimeout(lp.t); lp = null; } };
   ['pointerup','pointercancel','pointermove'].forEach(ev => cv.addEventListener(ev, lpCancel));
-  wrap.append(cv);
+  // navigazione: trascina per spostare, rotellina (o due dita) per ingrandire
+  const Wv = W, HvH = Hv;
+  wrap.style.height = HvH + 'px';
+  const key = [...mapShow].join() + '|' + groups.map(g => (g.p ? g.p.id : '-') + g.its.length).join();
+  const fit = (minZ = .2) => { const z = Math.max(minZ, Math.min(1, (Wv - 40) / CW, small ? 9 : (HvH - 90) / CH));
+    return {key, z, tx: (Wv - CW * z) / 2, ty: small || CH * z > HvH - 90 ? Math.min(70, (HvH - CH * z) / 2 + 20) : (HvH - CH * z) / 2 + 20}; };
+  if(!mapView || mapView.key !== key) mapView = fit(small ? .2 : .68);
+  const V = mapView, apply = () => { cv.style.transform = `translate(${V.tx}px,${V.ty}px) scale(${V.z})`; };
+  const zoomAt = (px, py, f) => { const nz = Math.max(.2, Math.min(3, V.z * f)); V.tx = px - (px - V.tx) * nz / V.z; V.ty = py - (py - V.ty) * nz / V.z; V.z = nz; apply(); };
+  apply();
+  const local = e => { const r = wrap.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  wrap.addEventListener('wheel', e => { e.preventDefault(); const [x, y] = local(e); zoomAt(x, y, Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0015))); }, {passive:false});
+  const pts = new Map(); let g = null;
+  const start = () => { const ps = [...pts.values()];
+    if(ps.length === 1) g = {pan:true, x:ps[0].x, y:ps[0].y, tx:V.tx, ty:V.ty, moved:false};
+    else if(ps.length >= 2){ const [a, b] = ps; g = {pinch:true, d:Math.hypot(a.x-b.x, a.y-b.y) || 1, mx:(a.x+b.x)/2, my:(a.y+b.y)/2, z:V.z, tx:V.tx, ty:V.ty, moved:true}; } };
+  wrap.addEventListener('pointerdown', e => {
+    if(e.button !== 0 || e.target.closest('.map-filter,.map-ctrl')) return;
+    const [x, y] = local(e); pts.set(e.pointerId, {x, y}); start();
+  });
+  const onMove = e => { if(!pts.has(e.pointerId) || !g) return; const [x, y] = local(e); pts.set(e.pointerId, {x, y});
+    if(g.pan){ const dx = x - g.x, dy = y - g.y; if(!g.moved && Math.hypot(dx, dy) < 4) return;
+      g.moved = true; wrap.classList.add('panning'); V.tx = g.tx + dx; V.ty = g.ty + dy; apply(); }
+    else if(g.pinch){ const [a, b] = [...pts.values()]; const d = Math.hypot(a.x-b.x, a.y-b.y), mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+      const nz = Math.max(.2, Math.min(3, g.z * d / g.d)); V.tx = mx - (g.mx - g.tx) * nz / g.z; V.ty = my - (g.my - g.ty) * nz / g.z; V.z = nz; apply(); } };
+  const onUp = e => { if(!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
+    if(g && g.moved){ justDragged = true; setTimeout(() => justDragged = false, 50); }
+    wrap.classList.remove('panning'); g = null; if(pts.size) start(); };
+  addEventListener('pointermove', onMove); addEventListener('pointerup', onUp); addEventListener('pointercancel', onUp);
+  const off = () => { if(!document.body.contains(wrap)){ removeEventListener('pointermove', onMove); removeEventListener('pointerup', onUp); removeEventListener('pointercancel', onUp); removeEventListener('hashchange', off); } };
+  addEventListener('hashchange', off);
+  wrap.append(cv, h('div',{class:'map-ctrl'},
+    h('button',{onclick:()=>zoomAt(Wv/2, HvH/2, 1.25),'aria-label':'Ingrandisci',title:'Ingrandisci'},'+'),
+    h('button',{onclick:()=>zoomAt(Wv/2, HvH/2, .8),'aria-label':'Riduci',title:'Riduci'},'−'),
+    h('button',{class:'fit',onclick:()=>{ Object.assign(V, fit()); apply(); },title:'Vedi tutta la mappa'},'Tutto')));
 }
 
 function pill(a, x, y){
@@ -852,6 +887,7 @@ function rowAtt(a, o={}){
   else if(a.scadenza && !done){ const n = diff(a.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null},dueLabel(a.scadenza))); }
   if(!a.ogni_giorno && !done && a.in_oggi && a.in_oggi<=today() && route.view!=='oggi') meta.append(h('span',null,'in programma oggi'));
   if(a.note) meta.append(h('span',null,'· nota'));
+  if((a.allegati||[]).length) meta.append(h('span',{class:'att-n',title:'Immagini allegate'}, ICON_IMG(), a.allegati.length));
   const body = h('div',{class:'tb',onclick:()=>sheetAttivita(a)}, h('div',{class:'tt'},a.titolo||'(senza titolo)'), meta);
   if(wait) body.append(h('div',{class:'waitline'},
     h('span',null,'aspetti ',h('b',null,a.attesa_chi||'qualcuno'), a.attesa_cosa?' — '+a.attesa_cosa:''),
@@ -885,9 +921,74 @@ function rowPratica(p){
       h('div',{class:'prat-dl mono'+(diff(p.scadenza)<0?' late':'')}, dueLabel(p.scadenza))) : null);
 }
 
+/* ---------------- immagini allegate alle attività ---------------- */
+const BUCKET = 'allegati';
+async function rimpicciolisci(file){
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+  const bmp = await createImageBitmap(file).catch(() => null); if(!bmp) return file;
+  const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height)); if(k === 1 && file.size < 1.5e6) return file;
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return await new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', .85));
+}
+async function caricaImmagini(taskId, files){
+  const out = [];
+  for(const f of files){
+    if(!/^image\//.test(f.type)) continue;
+    const blob = await rimpicciolisci(f), tipo = blob.type || f.type;
+    const path = taskId + '/' + uuid() + (tipo === 'image/jpeg' ? '.jpg' : '.' + ((f.name || '').split('.').pop() || 'img').toLowerCase());
+    const {error} = await sb.storage.from(BUCKET).upload(path, blob, {contentType: tipo});
+    if(error){ toast('Immagine non caricata: ' + errMsg(error)); continue; }
+    out.push({path, nome: f.name || 'immagine', tipo});
+  }
+  return out;
+}
+const urlCache = new Map();
+async function urlsFor(paths){
+  const need = paths.filter(p => !urlCache.has(p));
+  if(need.length){ const {data} = await sb.storage.from(BUCKET).createSignedUrls(need, 3600); (data || []).forEach(x => { if(x.signedUrl) urlCache.set(x.path, x.signedUrl); }); }
+  return paths.map(p => urlCache.get(p) || '');
+}
+function lightbox(urls, i){
+  const img = h('img',{alt:''}), show = () => { img.src = urls[i]; };
+  const close = () => { lb.remove(); removeEventListener('keydown', key, true); };
+  const go = n => { i = (i + n + urls.length) % urls.length; show(); };
+  const key = e => { if(e.key === 'Escape'){ e.stopPropagation(); close(); } else if(e.key === 'ArrowRight') go(1); else if(e.key === 'ArrowLeft') go(-1); };
+  const lb = h('div',{class:'lbox',onclick:e=>{ if(e.target === lb) close(); }}, img,
+    h('button',{class:'x lbox-x',onclick:close,'aria-label':'Chiudi'},'×'),
+    urls.length > 1 ? h('button',{class:'lbox-n lbox-p',onclick:()=>go(-1),'aria-label':'Precedente'},'←') : null,
+    urls.length > 1 ? h('button',{class:'lbox-n lbox-s',onclick:()=>go(1),'aria-label':'Successiva'},'→') : null);
+  show(); document.body.append(lb); addEventListener('keydown', key, true);
+}
+let pasteTarget = null;
+document.addEventListener('paste', e => {
+  if(!pasteTarget || ov.hidden) return;
+  const files = [...(e.clipboardData && e.clipboardData.files || [])].filter(f => /^image\//.test(f.type));
+  if(files.length){ e.preventDefault(); pasteTarget(files); }
+});
+function galleria(d, isNew, onChange){
+  let imgs = Array.isArray(d.allegati) ? d.allegati.slice() : [];
+  const gal = h('div',{class:'gal'});
+  const fileIn = h('input',{type:'file',accept:'image/*',multiple:true,hidden:true,onchange:e=>{ add([...e.target.files]); e.target.value = ''; }});
+  const persist = () => { onChange(imgs); if(!isNew){ const cur = get('attivita', d.id); if(cur) save('attivita', {...cur, allegati: imgs}); } };
+  const add = async files => { if(!files.length) return; gal.classList.add('busy');
+    const up = await caricaImmagini(d.id, files); imgs = imgs.concat(up); persist(); draw(); };
+  const draw = async () => {
+    const urls = await urlsFor(imgs.map(x => x.path));
+    gal.innerHTML = ''; gal.classList.remove('busy');
+    imgs.forEach((x, i) => gal.append(h('div',{class:'th'},
+      h('img',{src:urls[i], alt:x.nome, title:x.nome, onclick:()=>lightbox(urls, i)}),
+      h('button',{type:'button',class:'th-x',title:'Togli l’immagine','aria-label':'Togli',onclick:()=>{
+        imgs.splice(i, 1); sb.storage.from(BUCKET).remove([x.path]); persist(); draw(); }},'×'))));
+    gal.append(h('button',{type:'button',class:'th-add',onclick:()=>fileIn.click(),title:'Aggiungi immagini (puoi anche incollarle)'}, h('span',null,'+'), 'Immagine'));
+  };
+  pasteTarget = add; draw();
+  return h('div',null, gal, fileIn);
+}
+
 /* ---------------- schede (moduli) ---------------- */
 const ov = $('#ov'), sheet = $('#sheet');
-function closeSheet(){ ov.hidden = true; sheet.innerHTML = ''; }
+function closeSheet(){ ov.hidden = true; sheet.innerHTML = ''; pasteTarget = null; }
 ov.addEventListener('click', e => { if(e.target === ov) closeSheet(); });
 addEventListener('keydown', e => { if(e.key === 'Escape' && !ov.hidden) closeSheet(); });
 function openSheet(...kids){ sheet.innerHTML=''; sheet.append(h('button',{class:'x sheet-x',onclick:closeSheet,'aria-label':'Chiudi'},'×'), ...kids.flat().filter(Boolean)); capAll(sheet); ov.hidden=false; sheet.scrollTop=0; }
@@ -926,6 +1027,8 @@ function sheetAttivita(a, preset){
   const wcosa = txt(d.attesa_cosa,'che cosa (parere, rilievo, preventivo…)');
   const dl = h('datalist',{id:'dl-chi'},[...new Set(list('attivita').map(x=>x.attesa_chi).filter(Boolean))].sort(cmpIt).map(w=>h('option',{value:w})));
   const note = h('textarea',{placeholder:'note'}); note.value = d.note||'';
+  let allegati = Array.isArray(d.allegati) ? d.allegati : [];
+  const gal = galleria(d, isNew, v => { allegati = v; });
   const doSave = () => {
     const v = title.value.trim(); if(!v){ title.focus(); return; }
     lastCat = cat; lsSet('cat',cat);
@@ -934,7 +1037,7 @@ function sheetAttivita(a, preset){
       scadenza:due.value||null, ogni_giorno:daily.checked,
       in_oggi: (planned.checked || ora.value) ? (d.in_oggi && d.in_oggi<=td && !ora.value ? d.in_oggi : td) : null,
       ora_oggi: (planned.checked || ora.value) && ora.value ? ora.value.slice(0,5) : null, priorita: prio,
-      attesa_chi:wchi.value.trim(), attesa_cosa:wcosa.value.trim(), note:note.value.trim()});
+      attesa_chi:wchi.value.trim(), attesa_cosa:wcosa.value.trim(), note:note.value.trim(), allegati});
     closeSheet(); if(isNew) toast('aggiunta');
   };
   title.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); doSave(); } });
@@ -951,8 +1054,9 @@ function sheetAttivita(a, preset){
     h('div',{class:'f'}, h('div',{class:'row-oggi'}, h('label',{class:'tog'},planned,'da fare oggi'), h('label',{class:'tog'},'alle ',ora)), h('label',{class:'tog'},daily,'ogni giorno (torna da fare ogni mattina)')),
     h('div',{class:'f waitbox'}, h('span',{class:'lb'},'prima bisogna aspettare che…'), wchi, dl, h('div',{style:'height:6px'}), wcosa),
     h('div',{class:'f'},note),
+    h('div',{class:'f'}, h('span',{class:'lb'},'immagini'), gal),
     h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'),
-      isNew ? null : delBtn(()=>{ remove('attivita',d.id); closeSheet(); toast('eliminata'); })));
+      isNew ? null : delBtn(()=>{ (d.allegati||[]).length && sb.storage.from(BUCKET).remove(d.allegati.map(x=>x.path)); remove('attivita',d.id); closeSheet(); toast('eliminata'); })));
   if(isNew) setTimeout(()=>title.focus(),50);
 }
 

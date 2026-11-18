@@ -161,6 +161,16 @@ grant execute on function public.mia_email(), public.is_membro(), public.is_admi
 -- solo per la richiesta "tieni sveglio": le regole non mostrano alcuna riga a chi non ha fatto l'accesso
 grant select on public.membri to anon;
 
+-- ---------- immagini allegate alle attività (Supabase Storage, contenitore privato) ----------
+alter table public.attivita add column if not exists allegati jsonb not null default '[]'::jsonb;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ('allegati','allegati', false, 10485760, array['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif']) on conflict (id) do nothing;
+drop policy if exists "membri leggono allegati" on storage.objects;
+drop policy if exists "membri caricano allegati" on storage.objects;
+drop policy if exists "membri tolgono allegati" on storage.objects;
+create policy "membri leggono allegati" on storage.objects for select to authenticated using (bucket_id = 'allegati' and public.is_membro());
+create policy "membri caricano allegati" on storage.objects for insert to authenticated with check (bucket_id = 'allegati' and public.is_membro());
+create policy "membri tolgono allegati" on storage.objects for delete to authenticated using (bucket_id = 'allegati' and public.is_membro());
+
 -- ---------- aggiornamenti in tempo reale tra dispositivi -------------
 do $$
 declare t text;
