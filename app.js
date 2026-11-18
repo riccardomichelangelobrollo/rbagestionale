@@ -748,7 +748,9 @@ function vMappa(el){
   const fit = (minZ = .2) => { const z = Math.max(minZ, Math.min(1, (Wv - 40) / CW, small ? 9 : (HvH - 90) / CH));
     return {key, z, tx: (Wv - CW * z) / 2, ty: small || CH * z > HvH - 90 ? Math.min(70, (HvH - CH * z) / 2 + 20) : (HvH - CH * z) / 2 + 20}; };
   if(!mapView || mapView.key !== key) mapView = fit(small ? .2 : .68);
-  const V = mapView, apply = () => { cv.style.transform = `translate(${V.tx}px,${V.ty}px) scale(${V.z})`; };
+  const V = mapView, apply = () => { cv.style.transform = `translate(${V.tx}px,${V.ty}px) scale(${V.z})`;
+    cv.style.setProperty('--hs', Math.max(1, .9 / V.z).toFixed(3)); /* più ci si allontana, più crescono i nomi dei progetti (solo quelli) */
+    cv.classList.toggle('far', V.z < .55); };
   const zoomAt = (px, py, f) => { const nz = Math.max(.2, Math.min(3, V.z * f)); V.tx = px - (px - V.tx) * nz / V.z; V.ty = py - (py - V.ty) * nz / V.z; V.z = nz; apply(); };
   apply();
   const local = e => { const r = wrap.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
