@@ -61,3 +61,11 @@ Tutte le tabelle hanno `id uuid`, `created_at` e `updated_at` (aggiornato da tri
 5. Esportazione CSV dei dati dall'app.
 
 Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiornare `schema.sql` in modo idempotente (`if not exists`, `drop policy if exists`) e annotare qui le modifiche.
+
+## Grafica e funzioni aggiunte (ramo `proposta-grafica`, 18/11/2026)
+
+- Stile ripreso da riccardobrolloarchitetto.it: bianco e nero, accento `#ff4f00` solo per ciò che scotta, angoli vivi, linee 1px. Logo spirale + R B A in Jost (font e `img/spirale.png` copiati dal sito). Inter per tutto, IBM Plex Mono per etichette/numeri, Times solo nelle note dei progetti. Regole in testa a `style.css`.
+- Barra laterale: "da fare" (oggi, mappa, prossimi 7 giorni, in attesa di altri, completate), "anagrafiche" (progetti, pratiche edilizie, clienti), "impostazioni" (persone e accessi). Ogni voce ha una riga di spiegazione. Telefono: barra in basso oggi · mappa · progetti · pratiche · altro.
+- **oggi**: riepilogo a blocchi; colonna "da sistemare" (le attività scritte al mattino, riordinabili) e **timeline** 07:00–21:00 a mezz'ore. Trascinamento con mouse o con il dito sulla maniglia puntinata (`draggable`, `onDrop`). Campi `ora_oggi` (HH:MM, valido solo se `in_oggi` = oggi) e `ordine`.
+- **mappa**: foglio quadrettato con un riquadro per progetto e cartiglio; le attività sono blocchi colorati per categoria, grandi secondo la **priorità** (`priorita`: bassa/media/alta). Clic sull'etichetta di priorità per cambiarla, trascinamento su un altro progetto per spostarla.
+- `schema.sql` aggiornato con `priorita`, `ora_oggi`, `ordine` (già eseguito sul database).

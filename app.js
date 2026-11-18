@@ -20,8 +20,8 @@ const TIPI_PRATICA = ['CILA','CILAS','SCIA','SCIA alternativa al PdC','Permesso 
 const STATI_PRATICA = ['in preparazione','depositata','integrazioni richieste','conclusa'];
 const STATI_PROGETTO = ['attivo','in pausa','chiuso'];
 const TABLES = ['membri','clienti','progetti','pratiche','attivita'];
-const VIEWS = [['oggi','oggi'],['settimana','prossimi 7 giorni'],['progetti','progetti'],['attesa','in attesa'],
-  ['pratiche','pratiche'],['clienti','clienti'],['fatte','fatte'],['studio','studio']];
+const VIEWS = [['oggi','oggi'],['mappa','mappa'],['settimana','prossimi 7 giorni'],['attesa','in attesa di altri'],['fatte','completate'],
+  ['progetti','progetti'],['pratiche','pratiche edilizie'],['clienti','clienti'],['studio','persone e accessi']];
 
 /* ---------------- utilità ---------------- */
 const pad = n => String(n).padStart(2,'0');
@@ -143,26 +143,34 @@ addEventListener('hashchange', () => { readHash(); render(); scrollTo(0,0); });
 
 /* ---------------- render ---------------- */
 const LABEL = Object.fromEntries(VIEWS);
-const NAV_GROUPS = [['agenda',['oggi','settimana','attesa']],['archivio',['progetti','pratiche','clienti']],['studio',['fatte','studio']]];
-const TABS = ['oggi','settimana','progetti','pratiche'];
+const NAV_GROUPS = [
+  ['da fare',      ['oggi','mappa','settimana','attesa','fatte']],
+  ['anagrafiche',  ['progetti','pratiche','clienti']],
+  ['impostazioni', ['studio']]
+];
+const NAV_HINT = {oggi:'la giornata e la timeline', mappa:'tutte le attività per progetto', settimana:'le scadenze in arrivo',
+  attesa:'cose ferme per altri', fatte:'lo storico', progetti:'incarichi e cantieri', pratiche:'CILA, SCIA, PdC…',
+  clienti:'anagrafica', studio:'chi usa il gestionale'};
+const TABS = ['oggi','mappa','progetti','pratiche'];
 const ICONS = {
   oggi:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/>',
-  settimana:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
-  attesa:'<path d="M7 3h10M7 21h10M8 3v3.5l4 5 4-5V3M8 21v-3.5l4-5 4 5V21"/>',
-  progetti:'<path d="M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2h7.2a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
-  pratiche:'<path d="M14 3H7.5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7.5z"/><path d="M14 3v4.5h4.5M9 13h6M9 16.5h6"/>',
-  clienti:'<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c.6-3.6 3.7-5.5 7.5-5.5s6.9 1.9 7.5 5.5"/>',
-  fatte:'<circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.2l2.6 2.6 4.9-5.4"/>',
-  studio:'<circle cx="9" cy="8.5" r="3.2"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3 20c.5-3.2 2.9-5 6-5s5.5 1.8 6 5M15.6 14.3c2.6.1 4.6 1.6 5.2 4.2"/>',
-  altro:'<circle cx="5.5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18.5" cy="12" r="1.5"/>'
+  mappa:'<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>',
+  progetti:'<path d="M3.5 6.5h6l2 2h9v11h-17z"/>',
+  pratiche:'<path d="M14 3H5.5v18h13V7.5z"/><path d="M14 3v4.5h4.5M9 13h6M9 16.5h6"/>',
+  altro:'<path d="M4 7h16M4 12h16M4 17h16"/>'
 };
-function icon(n){ const s = h('span',{class:'ico','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+ICONS[n]+'</svg>'; return s; }
-let counts = {}, lateCount = 0;
+function icon(n){ const s = h('span',{class:'ico','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">'+ICONS[n]+'</svg>'; return s; }
+const ARROW = () => { const s = h('span',{class:'arr','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 21 L21 3 M8 3 H21 V16"/></svg>'; return s; };
+function logo(){
+  return h('a',{class:'logo',href:'#oggi','aria-label':'Riccardo Brollo Architetto · gestionale'},
+    h('img',{src:'img/spirale.png',alt:'',width:'34',height:'34'}), h('span',{class:'rba'},'RBA'));
+}
+let counts = {}, lateCount = 0, pendingRender = false;
 function newLabel(){
   return ({clienti:'nuovo cliente', pratiche:'nuova pratica', progetti:'nuovo progetto'})[route.view]
     || (route.view==='studio' && me.ruolo==='admin' ? 'aggiungi persona' : 'nuova attività');
 }
-const syncText = () => syncState==='live' ? 'sincronizzato' : syncState==='off' ? 'aggiornamenti non attivi: ricarica' : 'collegamento…';
+const syncText = () => syncState==='live' ? 'sincronizzato' : syncState==='off' ? 'non sincronizzato: ricarica' : 'collegamento…';
 function scopeToggle(){
   return h('div',{class:'scope',title:'mostra solo le tue attività o quelle di tutto lo studio'},
     h('button',{class:scope==='mie'?'on':null,onclick:()=>{scope='mie';lsSet('scope',scope);render();}},'le mie'),
@@ -171,43 +179,47 @@ function scopeToggle(){
 function meBox(){
   return h('div',{class:'me'}, h('span',{class:'who'},iniziali(me).toUpperCase()),
     h('div',{style:'min-width:0'}, h('div',{class:'me-n'},nomeMembro(me)),
-      h('div',{class:'me-r'}, me.ruolo==='admin'?'amministratore':'membro', ' · ', h('span',{class:syncState==='off'?'err':null},syncText()))));
+      h('div',{class:'me-r mono'}, me.ruolo==='admin'?'amministratore':'membro', ' · ', h('span',{class:syncState==='off'?'err':null},syncText()))));
 }
 function render(){
   const app = $('#app');
   if(!sb) return;
+  if(drag && drag.on){ pendingRender = true; return; }
   if(!sessionEmail) return renderLogin(app);
   if(!me) return renderNonMembro(app);
+  const sy = scrollY;
   app.innerHTML = '';
   document.body.classList.add('in');
-  const taskViews = ['oggi','settimana','attesa','fatte'];
   const open = att().filter(a => !isDone(a));
   lateCount = open.filter(a => !a.ogni_giorno && a.scadenza && diff(a.scadenza) < 0).length;
   counts = {
     oggi: att().filter(a => inToday(a) && !isDone(a)).length,
+    mappa: open.filter(a => !a.ogni_giorno).length,
     settimana: open.filter(a => !a.ogni_giorno && a.scadenza && diff(a.scadenza) < 7).length + praticheAperte().filter(p=>p.scadenza && diff(p.scadenza)<7).length,
     progetti: progetti().filter(p => p.stato === 'attivo').length,
     attesa: open.filter(isWaiting).length,
     pratiche: praticheAperte().length,
-    clienti: 0, fatte: 0, studio: 0
+    clienti: list('clienti').length, fatte: 0, studio: list('membri').filter(m=>m.attivo).length
   };
   const active = route.view==='progetto' ? 'progetti' : route.view;
-  const badge = id => counts[id] ? h('span',{class:'badge'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null;
+  let n = 0;
   const side = h('aside',{class:'side'},
-    h('a',{class:'brand',href:'#oggi'}, h('div',{class:'brand-t'},'gestionale'), h('div',{class:'brand-s'},CFG.nomeStudio||'')),
+    h('div',{class:'side-top'}, logo(), h('div',{class:'side-app mono'},'gestionale dello studio')),
     scopeToggle(),
-    h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, h('div',{class:'ng-t'},g),
-      ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id}, icon(id), h('span',{class:'nl-t'},LABEL[id]), badge(id)))))),
-    h('div',{class:'side-foot'}, meBox(), h('button',{class:'link',onclick:logout},'esci')));
-  let title = LABEL[route.view] || '', eyebrow = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+    h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, h('div',{class:'ng-t mono'},g),
+      ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id,title:NAV_HINT[id]},
+        h('span',{class:'nl-i mono'}, String(++n).padStart(2,'0')),
+        h('span',{class:'nl-t'}, LABEL[id], h('span',{class:'nl-h'},NAV_HINT[id])),
+        counts[id] ? h('span',{class:'nl-c mono'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null))))),
+    h('div',{class:'side-foot'}, meBox(), h('button',{class:'link mono',onclick:logout},'esci')));
+  let title = LABEL[route.view] || '', eyebrow = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   if(route.view==='progetto'){ const p = get('progetti',route.id); title = p ? p.nome : 'progetto'; eyebrow = h('a',{href:'#progetti'},'← progetti'); }
-  const content = h('div',{class:'content'},
+  const content = h('div',{class:'content'+(['oggi','mappa'].includes(route.view)?' wide':'')},
+    h('header',{class:'mtop'}, logo(), scopeToggle()),
     h('header',{class:'top'+(route.view==='progetto'?' long':'')},
-      h('div',{class:'top-t'}, h('div',{class:'eyebrow'},eyebrow), h('h1',null,title)),
-      h('div',{class:'top-a'}, h('div',{class:'only-m'},scopeToggle()),
-        h('button',{class:'btn pri only-d',onclick:fabAction},'+ '+newLabel()))));
-  if(route.view === 'oggi') content.append(oggiStats());
-  if(taskViews.includes(route.view)){
+      h('div',{class:'top-t'}, h('div',{class:'eyebrow mono'},eyebrow), h('h1',null,title)),
+      h('button',{class:'btn pri only-d',onclick:fabAction}, newLabel(), ARROW())));
+  if(['oggi','settimana','attesa','fatte','mappa'].includes(route.view)){
     if(route.view !== 'fatte') content.append(quickAdd());
     const lg = h('div',{class:'legend'+(catFilter?' filtered':'')});
     CATS.forEach(c => lg.append(h('button',{class:'chip'+(catFilter===c.id?' on':''),style:catStyle(c.id),
@@ -216,23 +228,97 @@ function render(){
     content.append(lg);
   }
   const main = h('main'); content.append(main);
-  ({oggi:vOggi, settimana:vSett, progetti:vProgetti, progetto:vProgetto, attesa:vAttesa,
+  ({oggi:vOggi, mappa:vMappa, settimana:vSett, progetti:vProgetti, progetto:vProgetto, attesa:vAttesa,
     pratiche:vPratiche, clienti:vClienti, fatte:vFatte, studio:vStudio})[route.view](main);
   const more = !TABS.includes(active);
   const tabbar = h('nav',{class:'tabbar'},
-    TABS.map(id => h('a',{class:'tab'+(active===id?' on':''),href:'#'+id}, icon(id), h('span',null,id==='settimana'?'7 giorni':LABEL[id]),
-      counts[id] ? h('span',{class:'tb-b'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null)),
-    h('button',{class:'tab'+(more?' on':''),onclick:sheetAltro}, icon('altro'), h('span',null, more ? LABEL[active] : 'altro'),
-      counts.attesa ? h('span',{class:'tb-b'},counts.attesa) : null));
+    TABS.map(id => h('a',{class:'tab'+(active===id?' on':''),href:'#'+id}, icon(id), h('span',null,id==='pratiche'?'pratiche':LABEL[id]),
+      counts[id] && id!=='mappa' ? h('span',{class:'tb-b'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null)),
+    h('button',{class:'tab'+(more?' on':''),onclick:sheetAltro}, icon('altro'), h('span',null, more ? LABEL[active] : 'altro')));
   app.append(h('div',{class:'shell'}, side, content), tabbar);
   if(!$('.fab')) document.body.append(h('button',{class:'fab','aria-label':'nuovo',onclick:fabAction},'+'));
+  if(renderKeepScroll){ scrollTo(0, sy); }
 }
+let renderKeepScroll = true;
 function sheetAltro(){
-  openSheet(h('h3',null,'altro'),
-    h('div',{class:'list'}, ['attesa','clienti','fatte','studio'].map(id => h('a',{class:'nl',href:'#'+id,onclick:closeSheet},
-      icon(id), h('span',{class:'nl-t'},LABEL[id]), counts[id] ? h('span',{class:'badge'},counts[id]) : null))),
+  openSheet(h('h3',null,'menu'),
+    NAV_GROUPS.map(([g,ids]) => h('div',{class:'f'}, h('span',{class:'lb mono'},g),
+      h('div',{class:'list'}, ids.filter(id=>!TABS.includes(id)).map(id => h('a',{class:'nl',href:'#'+id,onclick:closeSheet},
+        h('span',{class:'nl-t'},LABEL[id], h('span',{class:'nl-h'},NAV_HINT[id])), counts[id] ? h('span',{class:'nl-c mono'},counts[id]) : null))))),
     h('div',{class:'f'}, meBox()),
     h('div',{class:'btns'}, h('button',{class:'btn',onclick:()=>{closeSheet(); logout();}},'esci'), h('button',{class:'btn',onclick:closeSheet},'chiudi')));
+}
+
+/* ---------------- trascinamento (mouse e dito) ---------------- */
+let drag = null, justDragged = false;
+function draggable(el, a){
+  el.classList.add('dr'); el.dataset.id = a.id;
+  el.addEventListener('pointerdown', e => {
+    if(e.button !== 0) return;
+    const grip = e.target.closest('.grip');
+    if(!grip && (e.pointerType !== 'mouse' || e.target.closest('button,a,input,select,textarea'))) return;
+    drag = {a, el, x0:e.clientX, y0:e.clientY, on:false, zone:null, idx:0};
+    if(grip) e.preventDefault();
+  });
+}
+function dragZoneAt(x, y){
+  const t = document.elementFromPoint(x, y);
+  return t ? t.closest('[data-drop]') : null;
+}
+addEventListener('pointermove', e => {
+  if(!drag) return;
+  if(!drag.on){
+    if(Math.hypot(e.clientX-drag.x0, e.clientY-drag.y0) < 6) return;
+    drag.on = true;
+    const r = drag.el.getBoundingClientRect();
+    drag.dx = drag.x0 - r.left; drag.dy = drag.y0 - r.top;
+    drag.ghost = drag.el.cloneNode(true); drag.ghost.classList.add('ghost'); drag.ghost.style.width = r.width+'px';
+    document.body.append(drag.ghost); drag.el.classList.add('dragging'); document.body.classList.add('is-dragging');
+    drag.timer = setInterval(() => { if(!drag) return; const y = drag.y;
+      if(y < 80) scrollBy(0, -14); else if(y > innerHeight - 80) scrollBy(0, 14); }, 16);
+  }
+  e.preventDefault();
+  drag.y = e.clientY;
+  drag.ghost.style.transform = `translate(${e.clientX-drag.dx}px,${e.clientY-drag.dy}px) rotate(-1.5deg)`;
+  document.querySelectorAll('.over,.ins').forEach(x=>x.classList.remove('over','ins'));
+  const z = dragZoneAt(e.clientX, e.clientY); drag.zone = z;
+  if(!z) return;
+  z.classList.add('over');
+  if(z.dataset.sort !== undefined){
+    const kids = [...z.querySelectorAll(':scope > .dr:not(.dragging)')];
+    let i = kids.findIndex(k => { const r = k.getBoundingClientRect(); return e.clientY < r.top + r.height/2; });
+    if(i < 0) i = kids.length;
+    drag.idx = i; drag.kids = kids;
+    if(kids[i]) kids[i].classList.add('ins'); else z.classList.add('ins');
+  }
+}, {passive:false});
+function endDrag(drop){
+  const d = drag; drag = null;
+  if(!d || !d.on) return;
+  clearInterval(d.timer); d.ghost.remove(); d.el.classList.remove('dragging'); document.body.classList.remove('is-dragging');
+  document.querySelectorAll('.over,.ins').forEach(x=>x.classList.remove('over','ins'));
+  justDragged = true; setTimeout(()=>justDragged=false, 50);
+  if(drop && d.zone) onDrop(d.a, d.zone.dataset.drop, d.idx, (d.kids||[]).map(k=>k.dataset.id));
+  pendingRender = false; render();
+}
+addEventListener('pointerup', () => endDrag(true));
+addEventListener('pointercancel', () => endDrag(false));
+addEventListener('click', e => { if(justDragged){ e.stopPropagation(); e.preventDefault(); } }, true);
+function onDrop(a, where, idx, order){
+  const td = today();
+  if(where.startsWith('slot:')){
+    save('attivita', {...a, in_oggi: td, ora_oggi: where.slice(5)});
+    toast('alle '+where.slice(5));
+  } else if(where === 'inbox'){
+    const ids = order.filter(id => id !== a.id); ids.splice(idx, 0, a.id);
+    ids.forEach((id, i) => {
+      const x = id === a.id ? {...a, ora_oggi:null, in_oggi: a.in_oggi && a.in_oggi <= td ? a.in_oggi : td} : get('attivita', id);
+      if(x && (x.ordine !== (i+1)*10 || id === a.id)) save('attivita', {...x, ordine:(i+1)*10});
+    });
+  } else if(where.startsWith('prj:')){
+    const pid = where.slice(4) || null;
+    if((a.progetto_id||null) !== pid){ save('attivita', {...a, progetto_id: pid}); toast(pid ? 'spostata in '+get('progetti',pid).nome : 'tolta dal progetto'); }
+  }
 }
 function fabAction(){
   if(route.view === 'clienti') return sheetCliente();
@@ -242,7 +328,7 @@ function fabAction(){
   sheetAttivita(null, route.view==='progetto' ? {progetto_id: route.id} : null);
 }
 function quickAdd(){
-  const inp = h('input',{type:'text',placeholder:'aggiungi un’attività e premi invio',enterkeyhint:'done'});
+  const inp = h('input',{type:'text',placeholder: route.view==='oggi' ? 'scrivi una cosa da fare oggi e premi invio' : 'aggiungi un’attività e premi invio',enterkeyhint:'done'});
   const f = h('form',{class:'quick',autocomplete:'off',onsubmit:e=>{
     e.preventDefault(); const v = inp.value.trim(); if(!v) return;
     save('attivita', nuovaAttivita({titolo:v, progetto_id: route.view==='progetto'?route.id:null,
@@ -254,52 +340,132 @@ function quickAdd(){
 }
 function nuovaAttivita(p){
   return Object.assign({id:uuid(), titolo:'', progetto_id:null, categoria: catFilter || lastCat, scadenza:null, ogni_giorno:false,
-    fatta:false, fatta_il:null, fatta_oggi:null, in_oggi:null, attesa_chi:'', attesa_cosa:'', note:'',
+    fatta:false, fatta_il:null, fatta_oggi:null, in_oggi:null, ora_oggi:null, ordine:null, priorita:'media', attesa_chi:'', attesa_cosa:'', note:'',
     assegnata_a: me.id, creata_da: me.id, created_at: new Date().toISOString()}, p||{});
 }
 
 function section(el, title, items, opts={}){
   if(!items.length && !opts.keep) return;
   const box = h('section',{class:'grp'+(opts.late?' late':'')});
-  box.append(h('h2',null, h('span',{class:'t'},title), items.length ? h('span',{class:'n'},items.length) : null, opts.acts||null));
+  box.append(h('h2',null, h('span',{class:'t'},title), h('span',{class:'n mono'},items.length ? String(items.length).padStart(2,'0') : '—'), opts.acts||null));
   const lst = h('div',{class:'list'});
   if(!items.length && opts.emptyText) lst.append(h('div',{class:'empty sm'},opts.emptyText));
   items.forEach(x => lst.append(x.__pratica ? rowPratica(x.p) : (opts.row||rowAtt)(x)));
   box.append(lst); el.append(box);
+  return box;
 }
 const empty = (el, t) => el.append(h('div',{class:'empty'}, t));
 const asP = p => ({__pratica:true, p, scadenza:p.scadenza, created_at:p.created_at});
-function oggiStats(){
-  const rest = att().filter(a=>inToday(a) && !a.ogni_giorno && !isDone(a) && !isWaiting(a));
-  const prat = catFilter && catFilter!=='pa' ? [] : praticheAperte().filter(p=>p.scadenza && diff(p.scadenza)<=0);
-  return h('div',{class:'stats'},
-    stat('scadute', rest.filter(a=>a.scadenza && diff(a.scadenza)<0).length + prat.filter(x=>diff(x.scadenza)<0).length, {late:true}),
-    stat('da fare oggi', rest.filter(a=>!(a.scadenza && diff(a.scadenza)<0)).length + att().filter(a=>a.ogni_giorno && !isDone(a)).length + prat.filter(x=>diff(x.scadenza)===0).length),
-    stat('in attesa di altri', counts.attesa||0, {href:'#attesa'}),
-    stat('pratiche aperte', counts.pratiche||0, {href:'#pratiche'}));
-}
 function stat(lab, n, opts={}){
-  return h(opts.href?'a':'div',{class:'stat'+(opts.late&&n?' late':''),href:opts.href||null}, h('div',{class:'stat-n'},n), h('div',{class:'stat-l'},lab));
+  return h(opts.href?'a':'div',{class:'stat '+(opts.cls||''),href:opts.href||null},
+    h('div',{class:'stat-n'}, String(n).padStart(2,'0')), h('div',{class:'stat-l mono'},lab));
 }
+const PRIO = ['bassa','media','alta'];
+const prioOf = a => PRIO.includes(a.priorita) ? a.priorita : 'media';
+const byOrdine = (a,b) => ((a.ordine ?? 1e9) - (b.ordine ?? 1e9)) || sortA(a,b);
 
-/* ----- viste ----- */
+/* ----- oggi: da sistemare + timeline ----- */
+const ORE = []; for(let m = 7*60; m < 21*60; m += 30) ORE.push(pad(Math.floor(m/60))+':'+pad(m%60));
 function vOggi(el){
+  const td = today();
   const all = att().filter(inToday);
   const daily = all.filter(a=>a.ogni_giorno).sort(sortA);
-  const rest = all.filter(a=>!a.ogni_giorno);
-  const late = rest.filter(a=>a.scadenza && diff(a.scadenza)<0 && !isWaiting(a)).sort(sortA);
-  const now = rest.filter(a=>!(a.scadenza && diff(a.scadenza)<0) && !isWaiting(a)).sort(sortA);
-  const wait = rest.filter(isWaiting).sort(sortA);
+  const timed = att().filter(a => !a.ogni_giorno && a.in_oggi === td && a.ora_oggi && (!a.fatta || (a.fatta_il && ds(new Date(a.fatta_il)) === td)) && !isWaiting(a));
+  const inbox = all.filter(a => !a.ogni_giorno && !isWaiting(a) && !(a.in_oggi === td && a.ora_oggi)).sort(byOrdine);
+  const wait = all.filter(a => !a.ogni_giorno && isWaiting(a)).sort(sortA);
   const prat = catFilter && catFilter!=='pa' ? [] : praticheAperte().filter(p=>p.scadenza && diff(p.scadenza)<=0).sort(sortA).map(asP);
-  const doneToday = att().filter(a=>!a.ogni_giorno && a.fatta && a.fatta_il && ds(new Date(a.fatta_il))===today());
-  if(!all.length && !prat.length && !doneToday.length) return empty(el,'Niente in programma per oggi. Dalle altre liste puoi mettere in programma le attività di oggi.');
-  section(el,'scadute',late,{late:true});
-  section(el,'pratiche in scadenza',prat,{late:prat.some(x=>diff(x.scadenza)<0)});
-  section(el,'da fare oggi',now);
-  section(el,'ogni giorno',daily);
-  section(el,'in scadenza, ma in attesa di altri',wait);
-  section(el,'fatte oggi',doneToday);
+  const doneToday = att().filter(a=>!a.ogni_giorno && a.fatta && a.fatta_il && ds(new Date(a.fatta_il))===td && !(a.in_oggi===td && a.ora_oggi));
+  const late = inbox.filter(a=>a.scadenza && diff(a.scadenza)<0).length + prat.filter(x=>diff(x.scadenza)<0).length;
+  el.append(h('div',{class:'stats'},
+    stat('da fare oggi', inbox.length + timed.filter(a=>!a.fatta).length + daily.filter(a=>!isDone(a)).length, {cls:'ink'}),
+    stat('scadute', late, {cls: late ? 'hot' : ''}),
+    stat('in programma con un orario', timed.filter(a=>!a.fatta).length, {cls:'c-pa'}),
+    stat('in attesa di altri', counts.attesa||0, {cls:'c-amm', href:'#attesa'})));
+
+  const left = h('div',{class:'day-l'});
+  const ib = h('section',{class:'grp'},
+    h('h2',null, h('span',{class:'t'},'da sistemare'), h('span',{class:'n mono'}, String(inbox.length).padStart(2,'0')),
+      h('span',{class:'acts mono'},'trascina sulla timeline')));
+  const ibList = h('div',{class:'list drop','data-drop':'inbox','data-sort':''});
+  if(!inbox.length) ibList.append(h('div',{class:'empty sm'},'Scrivi qui sopra le cose da fare oggi, come ti vengono in mente. Poi trascinale sull’orario.'));
+  inbox.forEach(a => ibList.append(rowAtt(a, {drag:true})));
+  ib.append(ibList); left.append(ib);
+  section(left,'pratiche in scadenza',prat,{late:prat.some(x=>diff(x.scadenza)<0)});
+  section(left,'ogni giorno',daily);
+  section(left,'in attesa di altri',wait);
+  section(left,'fatte oggi',doneToday);
+
+  const now = new Date(), nowSlot = pad(now.getHours())+':'+(now.getMinutes()<30?'00':'30');
+  const tl = h('div',{class:'timeline'});
+  const extra = timed.filter(a => !ORE.includes(a.ora_oggi));
+  ORE.forEach(t => {
+    const its = timed.filter(a => a.ora_oggi === t || (t === ORE[0] && extra.includes(a)));
+    tl.append(h('div',{class:'slot'+(t.endsWith(':00')?' hr':'')+(t===nowSlot?' now':''),'data-drop':'slot:'+t},
+      h('div',{class:'slot-t mono'}, t.endsWith(':00') ? t : ''),
+      h('div',{class:'slot-b'}, its.sort(sortA).map(a => rowAtt(a, {drag:true, compact:true})))));
+  });
+  const right = h('div',{class:'day-r'}, h('section',{class:'grp'},
+    h('h2',null, h('span',{class:'t'},'timeline'), h('span',{class:'n mono'}, String(timed.length).padStart(2,'0')),
+      h('span',{class:'acts mono'}, now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}))), tl));
+  el.append(h('div',{class:'day'}, left, right));
 }
+
+/* ----- mappa: foglio bianco, attività per progetto, grandezza = priorità ----- */
+function vMappa(el){
+  const items = att().filter(a => !isDone(a) && !a.ogni_giorno);
+  const W = {alta:4, media:2, bassa:1};
+  const zones = progetti().filter(p => p.stato !== 'chiuso').map(p => ({p, its: items.filter(a => a.progetto_id === p.id)}));
+  const orph = items.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
+  zones.push({p:null, its: orph});
+  zones.forEach(z => { z.w = z.its.reduce((s,a)=>s+W[prioOf(a)],0); });
+  zones.sort((x,y) => (!x.p) - (!y.p) || y.w - x.w || cmpIt(x.p&&x.p.nome, y.p&&y.p.nome));
+  el.append(h('div',{class:'map-key mono'},
+    h('span',null,'grandezza = priorità'),
+    PRIO.slice().reverse().map(p => h('span',{class:'key-'+p}, h('i'), p)),
+    h('span',{class:'mute'},'clic sulla priorità per cambiarla · trascina un’attività su un altro progetto per spostarla')));
+  const sheetEl = h('div',{class:'foglio'});
+  const grid = h('div',{class:'zones'});
+  zones.forEach((z, i) => {
+    if(!z.its.length && (!z.p || z.p.stato !== 'attivo')) return;
+    const cl = z.p && get('clienti', z.p.cliente_id);
+    const zone = h('section',{class:'zona'+(z.w >= 12 ? ' big' : '')+(z.p?'':' none'),'data-drop':'prj:'+(z.p?z.p.id:'')},
+      h('header',{class:'zona-h'},
+        h('span',{class:'zona-i mono'}, z.p ? 'P'+String(i+1).padStart(2,'0') : '—'),
+        h('div',{style:'min-width:0;flex:1'},
+          z.p ? h('a',{class:'zona-n',href:'#progetto/'+z.p.id}, z.p.nome) : h('span',{class:'zona-n'},'senza progetto'),
+          h('div',{class:'zona-s mono'}, z.p ? [cl&&cl.nome, z.p.comune, z.p.stato!=='attivo'?z.p.stato:null].filter(Boolean).join(' · ') : 'attività generali dello studio')),
+        h('span',{class:'zona-c mono'}, String(z.its.length).padStart(2,'0'))));
+    const blobs = h('div',{class:'blobs'});
+    z.its.slice().sort((a,b) => W[prioOf(b)] - W[prioOf(a)] || sortA(a,b)).forEach(a => blobs.append(blob(a)));
+    if(!z.its.length) blobs.append(h('div',{class:'zona-e mono'},'nessuna attività aperta'));
+    zone.append(blobs); grid.append(zone);
+  });
+  sheetEl.append(grid,
+    h('table',{class:'cartiglio mono'}, h('tbody',null,
+      h('tr',null, h('td',null,'tavola'), h('td',null,'mappa delle attività')),
+      h('tr',null, h('td',null,'data'), h('td',null, new Date().toLocaleDateString('it-IT'))),
+      h('tr',null, h('td',null,'vista'), h('td',null, scope==='studio'?'tutto lo studio':nomeMembro(me))),
+      h('tr',null, h('td',null,'attività'), h('td',null, String(items.length))))));
+  el.append(sheetEl);
+}
+function blob(a){
+  const cat = CATMAP[a.categoria] ? a.categoria : 'stu', pr = prioOf(a), wait = isWaiting(a);
+  const late = a.scadenza && diff(a.scadenza) < 0;
+  const who = get('membri', a.assegnata_a);
+  const b = h('div',{class:'blob p-'+pr+(wait?' wait':'')+(late?' late':''),style:catStyle(cat),onclick:()=>sheetAttivita(a)},
+    h('div',{class:'blob-top'},
+      h('span',{class:'grip','aria-label':'trascina'}),
+      h('button',{class:'prio mono',title:'cambia priorità',onclick:e=>{ e.stopPropagation();
+        save('attivita',{...a, priorita: PRIO[(PRIO.indexOf(pr)+1)%3]}); }}, pr)),
+    h('div',{class:'blob-t'}, a.titolo || '(senza titolo)'),
+    h('div',{class:'blob-m mono'},
+      a.scadenza ? h('span',{class:late?'late':null}, dueLabel(a.scadenza)) : null,
+      wait ? h('span',null,'attende '+(a.attesa_chi||'altri')) : null,
+      who && (scope==='studio' || who.id!==me.id) ? h('span',null, iniziali(who).toUpperCase()) : null));
+  draggable(b, a);
+  return b;
+}
+
 function vSett(el){
   const a = att().filter(x=>!x.ogni_giorno && !isDone(x) && x.scadenza && diff(x.scadenza)<7);
   const p = (catFilter && catFilter!=='pa') ? [] : praticheAperte().filter(x=>x.scadenza && diff(x.scadenza)<7).map(asP);
@@ -315,38 +481,40 @@ function vSett(el){
 function vProgetti(el){
   const all = progetti();
   if(all.some(p=>p.stato==='chiuso')) el.append(h('div',{class:'toolbar'},
-    h('button',{class:'link',onclick:()=>{showClosed=!showClosed;render();}}, showClosed?'nascondi i chiusi':'mostra i chiusi')));
+    h('button',{class:'link mono',onclick:()=>{showClosed=!showClosed;render();}}, showClosed?'nascondi i chiusi':'mostra i chiusi')));
   if(!all.length) return empty(el,'Ancora nessun progetto. Creane uno con il pulsante +.');
+  let i = 0;
   STATI_PROGETTO.forEach(st => {
     if(st==='chiuso' && !showClosed) return;
     const ps = all.filter(p=>p.stato===st);
     if(!ps.length) return;
     el.append(h('section',{class:'grp'},
-      h('h2',null,h('span',{class:'t'}, st==='attivo'?'in corso':st==='in pausa'?'in pausa':'chiusi'), h('span',{class:'n'},ps.length)),
-      h('div',{class:'grid'}, ps.map(cardProgetto))));
+      h('h2',null,h('span',{class:'t'}, st==='attivo'?'in corso':st==='in pausa'?'in pausa':'chiusi'), h('span',{class:'n mono'},String(ps.length).padStart(2,'0'))),
+      h('div',{class:'grid'}, ps.map(p => cardProgetto(p, ++i)))));
   });
   const orfane = att().filter(a=>!isDone(a) && (!a.progetto_id || !get('progetti',a.progetto_id))).sort(sortA);
   section(el,'attività senza progetto',orfane);
 }
-function cardProgetto(p){
+function cardProgetto(p, i){
   const cl = get('clienti',p.cliente_id);
   const aperte = list('attivita').filter(a=>a.progetto_id===p.id && !isDone(a));
   const prat = list('pratiche').filter(x=>x.progetto_id===p.id && x.stato!=='conclusa');
   const prox = aperte.concat(prat).map(x=>x.scadenza).filter(Boolean).sort()[0];
   const cats = [...new Set(aperte.map(a=>CATMAP[a.categoria]?a.categoria:'stu'))];
   return h('a',{class:'tile'+(p.stato!=='attivo'?' dim':''),href:'#progetto/'+p.id},
-    h('div',{class:'tile-top'}, h('div',{class:'nm'},p.nome),
-      h('div',{class:'sub'}, [cl&&cl.nome, p.comune].filter(Boolean).join(' · ') || ' ')),
+    h('div',{class:'tile-i mono'}, 'P'+String(i).padStart(2,'0'), h('span',null, p.comune||'')),
+    h('div',{class:'tile-top'}, h('div',{class:'nm'},p.nome), h('div',{class:'sub'}, cl ? cl.nome : ' ')),
     h('div',{class:'dots'}, cats.map(c => h('span',{class:'dot',style:catStyle(c),title:CATMAP[c].name}))),
-    h('div',{class:'tile-foot'},
-      h('span',null,h('b',null,aperte.length),' attività'), h('span',null,h('b',null,prat.length), prat.length===1?' pratica':' pratiche'),
+    h('div',{class:'tile-foot mono'},
+      h('span',null,h('b',null,String(aperte.length).padStart(2,'0')),' attività'),
+      h('span',null,h('b',null,String(prat.length).padStart(2,'0')), prat.length===1?' pratica':' pratiche'),
       prox ? h('span',{class:'due'+(diff(prox)<0?' late-t':'')}, dueLabel(prox)) : null));
 }
 function vProgetto(el){
   const p = get('progetti', route.id);
   if(!p) return empty(el,'Progetto non trovato: forse è stato eliminato.');
   const cl = get('clienti',p.cliente_id);
-  const kv = (k,v) => v ? h('div',{class:'kv'}, h('div',{class:'k'},k), h('div',{class:'v'},v)) : null;
+  const kv = (k,v) => v ? h('div',{class:'kv'}, h('div',{class:'k mono'},k), h('div',{class:'v'},v)) : null;
   el.append(h('div',{class:'phead'},
     h('div',{class:'kvs'},
       kv('cliente', cl ? h('a',{href:'#',onclick:e=>{e.preventDefault();sheetCliente(cl);}},cl.nome) : null),
@@ -360,7 +528,7 @@ function vProgetto(el){
     acts:h('span',{class:'acts'},h('button',{onclick:()=>sheetPratica(null,{progetto_id:p.id, comune:p.comune})},'+ pratica'))});
   section(el,'pratiche concluse',prat.filter(x=>x.stato==='conclusa').map(asP));
   const a = list('attivita').filter(x=>x.progetto_id===p.id).filter(x=>!catFilter||(x.categoria||'stu')===catFilter);
-  section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)).sort(sortA),{keep:true,emptyText:'nessuna attività aperta',
+  section(el,'da fare',a.filter(x=>!isDone(x)&&!isWaiting(x)).sort((x,y)=>{const W={alta:0,media:1,bassa:2}; return W[prioOf(x)]-W[prioOf(y)] || sortA(x,y);}),{keep:true,emptyText:'nessuna attività aperta',
     acts:h('span',{class:'acts'},h('button',{onclick:()=>sheetAttivita(null,{progetto_id:p.id})},'+ attività'))});
   section(el,'in attesa di altri',a.filter(isWaiting).sort(sortA));
   section(el,'fatte',a.filter(x=>x.fatta).sort((x,y)=>cmpIt(y.fatta_il,x.fatta_il)).slice(0,30));
@@ -375,7 +543,7 @@ function vAttesa(el){
 }
 function vPratiche(el){
   el.append(h('div',{class:'toolbar'},
-    h('button',{class:'link',onclick:()=>{showConcluse=!showConcluse;render();}}, showConcluse?'nascondi le concluse':'mostra le concluse')));
+    h('button',{class:'link mono',onclick:()=>{showConcluse=!showConcluse;render();}}, showConcluse?'nascondi le concluse':'mostra le concluse')));
   const all = list('pratiche');
   if(!all.length) return empty(el,'Nessuna pratica. Le pratiche si legano a un progetto.');
   STATI_PRATICA.forEach(st => {
@@ -397,8 +565,8 @@ function vClienti(el){
       const ps = list('progetti').filter(p=>p.cliente_id===c.id);
       return h('div',{class:'card',onclick:()=>sheetCliente(c)},
         h('span',{class:'who lg'}, c.nome.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()),
-        h('div',{style:'min-width:0;flex:1'}, h('div',{class:'nm'},c.nome), h('div',{class:'sub'},[c.telefono,c.email,c.codice_fiscale].filter(Boolean).join(' · ')||' ')),
-        h('div',{class:'cnt'}, ps.length ? h('span',null,h('b',null,ps.length), ps.length===1?' progetto':' progetti') : null));
+        h('div',{style:'min-width:0;flex:1'}, h('div',{class:'nm'},c.nome), h('div',{class:'sub mono'},[c.telefono,c.email,c.codice_fiscale].filter(Boolean).join(' · ')||' ')),
+        h('div',{class:'cnt mono'}, ps.length ? h('span',null,h('b',null,ps.length), ps.length===1?' progetto':' progetti') : null));
     })));
   }
   drawList();
@@ -410,10 +578,10 @@ function vFatte(el){
 }
 function vStudio(el){
   const admin = me.ruolo === 'admin';
-  el.append(h('section',{class:'grp'}, h('h2',null,h('span',{class:'t'},'persone dello studio'), h('span',{class:'n'},membri().length)),
+  el.append(h('section',{class:'grp'}, h('h2',null,h('span',{class:'t'},'persone che usano il gestionale'), h('span',{class:'n mono'},String(membri().length).padStart(2,'0'))),
     h('div',{class:'list'}, membri().map(m => h('div',{class:'card',onclick:admin?()=>sheetMembro(m):null,style:admin?null:'cursor:default'},
       h('span',{class:'who lg'},iniziali(m).toUpperCase()),
-      h('div',{style:'min-width:0;flex:1'}, h('div',{class:'nm'},nomeMembro(m)), h('div',{class:'sub'},m.email)),
+      h('div',{style:'min-width:0;flex:1'}, h('div',{class:'nm'},nomeMembro(m)), h('div',{class:'sub mono'},m.email)),
       h('div',{class:'cnt'}, h('span',{class:'pill'+(m.ruolo==='admin'?' dark':'')}, m.ruolo==='admin'?'amministratore':'membro'), m.attivo?'':' · disattivato'))))));
   if(!admin) el.append(h('p',{class:'hint'},'Solo un amministratore può aggiungere persone.'));
   el.append(h('section',{class:'grp'}, h('h2',null,h('span',{class:'t'},'importa dall’app “cose da fare”')),
@@ -423,7 +591,7 @@ function vStudio(el){
 }
 
 /* ----- righe ----- */
-function rowAtt(a){
+function rowAtt(a, o={}){
   const done = isDone(a), wait = isWaiting(a), cat = CATMAP[a.categoria] ? a.categoria : 'stu';
   const meta = h('div',{class:'meta'});
   const p = get('progetti',a.progetto_id);
@@ -433,15 +601,19 @@ function rowAtt(a){
   else if(a.scadenza && !done){ const n = diff(a.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null},dueLabel(a.scadenza))); }
   if(!a.ogni_giorno && !done && a.in_oggi && a.in_oggi<=today() && route.view!=='oggi') meta.append(h('span',null,'in programma oggi'));
   if(a.note) meta.append(h('span',null,'· nota'));
+  if(prioOf(a) !== 'media' && !done) meta.prepend(h('span',{class:'prio-t mono p-'+prioOf(a)}, prioOf(a)));
   const body = h('div',{class:'tb',onclick:()=>sheetAttivita(a)}, h('div',{class:'tt'},a.titolo||'(senza titolo)'), meta);
   if(wait) body.append(h('div',{class:'waitline'},
     h('span',null,'aspetti ',h('b',null,a.attesa_chi||'qualcuno'), a.attesa_cosa?' — '+a.attesa_cosa:''),
     h('button',{onclick:e=>{e.stopPropagation(); save('attivita',{...a,attesa_chi:'',attesa_cosa:''}); toast('sbloccata: ora tocca a voi');}},'sbloccata')));
   const who = get('membri',a.assegnata_a);
   const showWho = who && (scope==='studio' || who.id!==me.id);
-  return h('div',{class:'task'+(done?' done':'')+(wait?' wait':''),style:catStyle(cat)},
+  const row = h('div',{class:'task'+(done?' done':'')+(wait?' wait':'')+(o.compact?' compact':'')+(prioOf(a)==='alta'&&!done?' hi':''),style:catStyle(cat)},
+    o.drag ? h('span',{class:'grip','aria-label':'trascina'}) : null,
     h('button',{class:'chk','aria-label':done?'segna da fare':'segna fatta',onclick:()=>toggle(a)}), body,
     showWho ? h('div',{class:'who',title:nomeMembro(who)},iniziali(who).toUpperCase()) : null);
+  if(o.drag) draggable(row, a);
+  return row;
 }
 function toggle(a){
   if(a.ogni_giorno) save('attivita',{...a, fatta_oggi: isDone(a) ? null : today()});
@@ -492,6 +664,11 @@ function sheetAttivita(a, preset){
   const due = h('input',{type:'date',value:d.scadenza||''});
   const daily = h('input',{type:'checkbox',checked:!!d.ogni_giorno});
   const planned = h('input',{type:'checkbox',checked:!!(d.in_oggi && d.in_oggi<=today())});
+  const ora = h('input',{type:'time',value:(d.in_oggi===today() && d.ora_oggi) || '',step:'1800'});
+  let prio = prioOf(d);
+  const prios = h('div',{class:'seg'});
+  const drawPrio = () => { prios.innerHTML=''; PRIO.forEach(p => prios.append(h('button',{type:'button',class:'p-'+p+(p===prio?' on':''),onclick:()=>{prio=p;drawPrio();}},p))); };
+  drawPrio();
   const wchi = h('input',{type:'text',value:d.attesa_chi||'',placeholder:'chi (Comune, cliente, impresa, collega…)',list:'dl-chi'});
   const wcosa = txt(d.attesa_cosa,'che cosa (parere, rilievo, preventivo…)');
   const dl = h('datalist',{id:'dl-chi'},[...new Set(list('attivita').map(x=>x.attesa_chi).filter(Boolean))].sort(cmpIt).map(w=>h('option',{value:w})));
@@ -502,7 +679,8 @@ function sheetAttivita(a, preset){
     const td = today();
     save('attivita',{...d, titolo:v, categoria:cat, progetto_id:prog.value||null, assegnata_a:chi.value||null,
       scadenza:due.value||null, ogni_giorno:daily.checked,
-      in_oggi: planned.checked ? (d.in_oggi && d.in_oggi<=td ? d.in_oggi : td) : null,
+      in_oggi: (planned.checked || ora.value) ? (d.in_oggi && d.in_oggi<=td && !ora.value ? d.in_oggi : td) : null,
+      ora_oggi: (planned.checked || ora.value) && ora.value ? ora.value.slice(0,5) : null, priorita: prio,
       attesa_chi:wchi.value.trim(), attesa_cosa:wcosa.value.trim(), note:note.value.trim()});
     closeSheet(); if(isNew) toast('aggiunta');
   };
@@ -510,13 +688,14 @@ function sheetAttivita(a, preset){
   openSheet(h('h3',null,isNew?'nuova attività':'attività'),
     h('div',{class:'f'},title),
     h('div',{class:'f'},h('span',{class:'lb'},'tipo di attività'),cats),
+    h('div',{class:'f'},h('span',{class:'lb'},'priorità'),prios),
     h('div',{class:'row2'}, fld('progetto',prog), fld('chi la fa',chi)),
     fld('scadenza', due, h('div',{class:'qd'},
       h('button',{type:'button',onclick:()=>due.value=today()},'oggi'),
       h('button',{type:'button',onclick:()=>due.value=addDays(today(),1)},'domani'),
       h('button',{type:'button',onclick:()=>due.value=addDays(today(),7)},'tra una settimana'),
       h('button',{type:'button',onclick:()=>due.value=''},'nessuna'))),
-    h('div',{class:'f'}, h('label',{class:'tog'},planned,'da fare oggi'), h('label',{class:'tog'},daily,'ogni giorno (torna da fare ogni mattina)')),
+    h('div',{class:'f'}, h('div',{class:'row-oggi'}, h('label',{class:'tog'},planned,'da fare oggi'), h('label',{class:'tog'},'alle ',ora)), h('label',{class:'tog'},daily,'ogni giorno (torna da fare ogni mattina)')),
     h('div',{class:'f waitbox'}, h('span',{class:'lb'},'prima bisogna aspettare che…'), wchi, dl, h('div',{style:'height:6px'}), wcosa),
     h('div',{class:'f'},note),
     h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'), h('button',{class:'btn',onclick:closeSheet},'annulla'),
@@ -657,7 +836,7 @@ function sheetImport(){
     const as = arr.filter(x=>x && x.kind==='task').map(x => ({id:uuid(), titolo:String(x.title||'(senza titolo)'), progetto_id: pmap[x.projectId]||null,
       categoria: CATMAP[x.cat] ? x.cat : 'stu', scadenza: okD(x.due), ogni_giorno: !!x.daily, fatta: !!x.done,
       fatta_il: x.done && x.doneAt ? new Date(x.doneAt).toISOString() : null, fatta_oggi: okD(x.doneOn), in_oggi: okD(x.plannedFor),
-      attesa_chi: String(x.waitWho||''), attesa_cosa: String(x.waitWhat||''), note: String(x.note||''),
+      attesa_chi: String(x.waitWho||''), attesa_cosa: String(x.waitWhat||''), note: String(x.note||''), priorita:'media',
       assegnata_a: me.id, creata_da: me.id, created_at: x.created ? new Date(x.created).toISOString() : now}));
     if(!ps.length && !as.length){ msg.textContent = 'Nel testo non ci sono progetti né attività.'; return; }
     msg.textContent = 'Importazione in corso…';

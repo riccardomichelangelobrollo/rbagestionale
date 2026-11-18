@@ -80,6 +80,13 @@ create table if not exists public.attivita (
   updated_at   timestamptz not null default now()
 );
 
+-- priorità (mappa) e posto nella giornata (timeline di "oggi"): aggiunti il 18/11/2026
+alter table public.attivita add column if not exists priorita text not null default 'media';
+alter table public.attivita drop constraint if exists attivita_priorita_check;
+alter table public.attivita add constraint attivita_priorita_check check (priorita in ('bassa','media','alta'));
+alter table public.attivita add column if not exists ora_oggi text;          -- 'HH:MM' nel giorno indicato da in_oggi
+alter table public.attivita add column if not exists ordine double precision; -- ordine tra le cose da sistemare
+
 create index if not exists attivita_progetto_idx on public.attivita(progetto_id);
 create index if not exists attivita_assegnata_idx on public.attivita(assegnata_a);
 create index if not exists pratiche_progetto_idx on public.pratiche(progetto_id);
