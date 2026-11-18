@@ -198,7 +198,7 @@ function meBox(){
 function render(){
   const app = $('#app');
   if(!sb) return;
-  if((drag && drag.on) || mapDragging){ pendingRender = true; return; }
+  if((drag && drag.on) || mapDragging || (fd && fd.on)){ pendingRender = true; return; }
   if(!sessionEmail) return renderLogin(app);
   if(!me) return renderNonMembro(app);
   const sy = scrollY;
@@ -454,7 +454,7 @@ function tabSvg(){
   return s;
 }
 function folder(o){
-  return h('a',{class:'folder'+(o.hot?' hot':'')+(o.color==='#111'?' dark':'')+(o.ghost?' fd-new':''),href:o.href||'#',style:`--f:${o.color||'#fff'}`,'data-proj':o.proj||null,
+  return h('a',{class:'folder'+(o.hot?' hot':'')+(o.color==='#111'?' dark':'')+(o.ghost?' fd-new':''),href:o.href||'#',style:`--f:${o.color||'#fff'}`,'data-proj':o.proj||null,'data-key':o.proj||o.href||o.title,draggable:'false',ondragstart:e=>e.preventDefault(),
       onclick:e=>{ const r = e.currentTarget.getBoundingClientRect(); openFrom = {x:r.left + r.width/2, y:r.top + r.height/2};
         if(o.onclick){ e.preventDefault(); o.onclick(); } }},
     tabSvg(),
@@ -479,11 +479,12 @@ function vScrivania(el){
   const F = (o, xs, extraHot) => { const late = lateOf(xs), due = firstDue(xs);
     return folder({...o, count: xs.length, hot: late > 0 || !!extraHot, sub: [lateTxt(late), extraHot].filter(Boolean).join(' · ') || null,
       foot: due ? dueLabel(due) : ''}); };
-  const shelf = (title, kids, add) => h('section',{class:'shelf'},
+  const shelf = (title, kids, add, key) => h('section',{class:'shelf'},
     h('h2',null, h('span',{class:'t'},title), add ? h('button',{class:'shelf-add',onclick:add.fn,title:add.title,'aria-label':add.title},'+') : null),
-    h('div',{class:'folders'}, kids));
+    h('div',{class:'folders','data-shelf':key}, key === 'progetti' ? kids : ordinaLocale(key, kids.filter(Boolean))));
   const W = {alta:0, media:1, bassa:2};
-  const ps = progetti().filter(p => p.stato === 'attivo');
+  const actives = progetti().filter(p => p.stato === 'attivo');           // ordine per nome: dà il colore, che non cambia
+  const ps = actives.slice().sort(byOrdP);                              // ordine scelto trascinando
   const orph = open.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
   const paused = progetti().filter(p => p.stato === 'in pausa');
   el.append(h('div',{class:'desk'},
@@ -493,19 +494,55 @@ function vScrivania(el){
       F({href:'#scrivania/attesa', title:'In attesa di altri', color:'#E7DAEA', items: wait.map(a => (a.attesa_chi||'Qualcuno') + ' · ' + a.titolo)}, wait),
       F({href:'#scrivania/pratiche', title:'Pratiche edilizie', color:'#DCEDF2', items: pr.map(p => p.tipo + ' · ' + ((get('progetti',p.progetto_id)||{}).comune || p.comune || ''))}, pr,
         integr ? integr + (integr === 1 ? ' integrazione richiesta' : ' integrazioni richieste') : null)
-    ]),
-    shelf('Progetti in corso', ps.map((p, i) => {
+    ], null, 'giornata'),
+    shelf('Progetti in corso', ps.map(p => {
       const its = open.filter(a => a.progetto_id === p.id).sort((a,b) => W[prioOf(a)] - W[prioOf(b)] || sortA(a,b));
-      return F({proj:p.id, href:'#scrivania/progetto/'+p.id, title:p.nome, color:FOLDER_COLORS[i % FOLDER_COLORS.length], items: its.map(a => a.titolo)},
+      return F({proj:p.id, href:'#scrivania/progetto/'+p.id, title:p.nome, color:FOLDER_COLORS[actives.indexOf(p) % FOLDER_COLORS.length], items: its.map(a => a.titolo)},
         its.concat(pr.filter(x => x.progetto_id === p.id)));
-    }), {fn:()=>sheetProgetto(), title:'Nuovo progetto'}),
+    }), {fn:()=>sheetProgetto(), title:'Nuovo progetto'}, 'progetti'),
     shelf('Studio', [
       F({href:'#scrivania/generali', title:'Generali', color:'#ffffff', items: orph.map(a => a.titolo)}, orph),
       paused.length ? folder({href:'#progetti', title:'In pausa', color:'#eeeae4', count:paused.length, items: paused.map(p => p.nome), foot:''}) : null,
       folder({href:'#scrivania/fatte', title:'Completate', color:'#f3f1ec', count: att().filter(a => a.fatta).length,
         items: att().filter(a => a.fatta).sort((a,b)=>cmpIt(b.fatta_il,a.fatta_il)).map(a => a.titolo), foot:''})
-    ].filter(Boolean))));
+    ].filter(Boolean), null, 'studio')));
 }
+const byOrdP = (a, b) => ((a.ordine ?? 1e9) - (b.ordine ?? 1e9)) || cmpIt(a.nome, b.nome);
+function ordinaLocale(key, kids){
+  let o = []; try { o = JSON.parse(lsGet('ord-' + key) || '[]'); } catch(e){}
+  if(!o.length) return kids;
+  const pos = k => { const i = o.indexOf(k.dataset.key); return i < 0 ? 999 : i; };
+  return kids.slice().sort((a, b) => pos(a) - pos(b));
+}
+function salvaOrdine(wrap){
+  const keys = [...wrap.children].map(x => x.dataset.key), key = wrap.dataset.shelf;
+  if(key === 'progetti') keys.forEach((id, i) => { const p = get('progetti', id); if(p && p.ordine !== (i+1) * 10) save('progetti', {...p, ordine: (i+1) * 10}); });
+  else lsSet('ord-' + key, JSON.stringify(keys));
+}
+function spostaProgetto(p, dir){
+  const ps = progetti().filter(x => x.stato === 'attivo').sort(byOrdP), i = ps.indexOf(p), j = i + dir;
+  if(i < 0 || j < 0 || j >= ps.length) return;
+  [ps[i], ps[j]] = [ps[j], ps[i]];
+  ps.forEach((x, k) => { if(x.ordine !== (k+1) * 10) save('progetti', {...x, ordine: (k+1) * 10}); });
+}
+/* trascinare una cartella dentro il suo ripiano (con il mouse) */
+let fd = null;
+document.addEventListener('pointerdown', e => { const f = e.target.closest('.folders > .folder'); if(!f || e.button !== 0 || e.pointerType !== 'mouse') return; fd = {f, x0:e.clientX, y0:e.clientY, on:false}; });
+addEventListener('pointermove', e => {
+  if(!fd) return;
+  if(!fd.on){ if(Math.hypot(e.clientX - fd.x0, e.clientY - fd.y0) < 6) return;
+    fd.on = true; const r = fd.f.getBoundingClientRect(); fd.dx = e.clientX - r.left; fd.dy = e.clientY - r.top;
+    fd.ghost = fd.f.cloneNode(true); fd.ghost.classList.add('fd-ghost'); fd.ghost.style.width = r.width + 'px'; document.body.append(fd.ghost);
+    fd.f.classList.add('fd-drag'); document.body.classList.add('is-dragging'); }
+  fd.ghost.style.transform = `translate(${e.clientX - fd.dx}px,${e.clientY - fd.dy}px) rotate(-2deg)`;
+  const wrap = fd.f.parentElement; let best = null, bd = 1e9;
+  [...wrap.children].forEach(s => { if(s === fd.f) return; const r = s.getBoundingClientRect(); const d = Math.hypot(e.clientX - (r.left + r.width/2), e.clientY - (r.top + r.height/2)); if(d < bd){ bd = d; best = s; } });
+  if(best && bd < 180){ const r = best.getBoundingClientRect(), after = e.clientX > r.left + r.width/2;
+    if(after){ if(best.nextSibling !== fd.f) wrap.insertBefore(fd.f, best.nextSibling); } else if(best.previousSibling !== fd.f) wrap.insertBefore(fd.f, best); }
+});
+addEventListener('pointerup', () => { if(!fd) return; const d = fd; fd = null; if(!d.on) return;
+  d.ghost.remove(); d.f.classList.remove('fd-drag'); document.body.classList.remove('is-dragging');
+  justDragged = true; setTimeout(() => justDragged = false, 60); salvaOrdine(d.f.parentElement); render(); });
 function vGenerali(el){
   const its = att().filter(a => !a.ogni_giorno && (!a.progetto_id || !get('progetti', a.progetto_id)));
   const W = {alta:0, media:1, bassa:2};
@@ -835,6 +872,9 @@ function projCtx(p, x, y){
     p.stato === 'attivo' ? h('button',{class:'ctx-i',onclick:()=>set('in pausa','in pausa')},'Metti in pausa') : null,
     p.stato !== 'attivo' ? h('button',{class:'ctx-i',onclick:()=>set('attivo','di nuovo in corso')}, p.stato === 'chiuso' ? 'Recupera dall’archivio' : 'Riattiva') : null,
     p.stato !== 'chiuso' ? h('button',{class:'ctx-i',onclick:()=>set('chiuso','archiviato')},'Archivia') : null,
+    p.stato === 'attivo' ? h('div',{class:'ctx-sep'}) : null,
+    p.stato === 'attivo' ? h('button',{class:'ctx-i',onclick:()=>{ closeCtx(); spostaProgetto(p, -1); }},'Sposta prima') : null,
+    p.stato === 'attivo' ? h('button',{class:'ctx-i',onclick:()=>{ closeCtx(); spostaProgetto(p, 1); }},'Sposta dopo') : null,
     h('div',{class:'ctx-sep'}),
     h('button',{class:'ctx-i',onclick:()=>{ closeCtx(); location.hash = '#scrivania/progetto/' + p.id; }},'Apri la cartella'),
     h('button',{class:'ctx-i',onclick:()=>{ closeCtx(); sheetProgetto(p); }},'Modifica i dati…'));

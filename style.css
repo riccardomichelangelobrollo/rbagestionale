@@ -630,3 +630,4 @@ body.ov-open{overflow:hidden}
 .mapcv.far .hub-l em{display:none}
 .mapcv.far .hub-l{padding:4px 9px}
 .hub:hover{z-index:9}
+.folder,.folder *{-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
