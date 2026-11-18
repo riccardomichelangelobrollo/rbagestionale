@@ -58,11 +58,11 @@ function h(tag, attrs, ...kids){
   for(const c of kids.flat()){ if(c == null || c === false) continue; e.append(c.nodeType ? c : document.createTextNode(String(c))); }
   return e;
 }
-const catStyle = id => `--c:var(--c-${id});--ci:var(--c-${id}-ink)`;
+const catStyle = id => `--c:var(--c-${id});--cs:var(--c-${id}-s);--ci:var(--c-${id}-ink)`;
 let toastT;
 function toast(msg){ msg = cap(String(msg)); let t = $('.toast'); if(!t){ t = h('div',{class:'toast'}); document.body.append(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(()=>t.remove(), 2600); }
 const cap = s => s ? s.charAt(0).toLocaleUpperCase('it-IT') + s.slice(1) : s;
-const CAP_SEL = '.cal-m,.cal-wd,.cal-hint,.tbar-d,.fd-t,.fd-s,.fd-l li,.fo-t,.fo-s,.ctx-t,.ctx-l,.ctx-i,.shelf .acts,h1,h2 .t,h3,.nl-t,.nl-h,.ng-t,.chip,.btn,.tab span,.scope button,.stat-l,.eyebrow,.acts,.acts button,.f > label,.f > .lb,.tog,.qd button,.link,.meta .cat,.meta span,.tt,.mp-t,.mp-m,.empty,.side-app,.kv .k,.pill,.seg button,.quick button,.me-r,.waitline span,.waitline button,.cnt span,.prat-st,.prat-m .mono,.prat-dl,.tile-foot .due,.card .sub,.hub-l span,.map-key span,.prio-t,.login p,.confirm,.day,.sub,option';
+const CAP_SEL = '.fd-due,.cal-m,.cal-wd,.cal-hint,.tbar-d,.fd-t,.fd-s,.fd-l li,.fo-t,.fo-s,.ctx-t,.ctx-l,.ctx-i,.shelf .acts,h1,h2 .t,h3,.nl-t,.nl-h,.ng-t,.chip,.btn,.tab span,.scope button,.stat-l,.eyebrow,.acts,.acts button,.f > label,.f > .lb,.tog,.qd button,.link,.meta .cat,.meta span,.tt,.mp-t,.mp-m,.empty,.side-app,.kv .k,.pill,.seg button,.quick button,.me-r,.waitline span,.waitline button,.cnt span,.prat-st,.prat-m .mono,.prat-dl,.tile-foot .due,.card .sub,.hub-l span,.map-key span,.prio-t,.login p,.confirm,.day,.sub,option';
 function capAll(root){
   root.querySelectorAll(CAP_SEL).forEach(el => {
     const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -219,7 +219,7 @@ function render(){
   const prevOv = $('.fo'); if(prevOv) ovScroll = prevOv.scrollTop;
   let n = 0;
   const side = h('aside',{class:'side',onclick:e=>{ if(e.target.closest('a.nl')) setNav(false); }},
-    h('div',{class:'side-top'}, logo(), h('div',{class:'side-app mono'},'gestionale dello studio')),
+    h('div',{class:'side-top'}, logo(), h('button',{class:'x',onclick:()=>setNav(false),'aria-label':'Chiudi il menu'},'×')),
     scopeToggle(),
     h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, g ? h('div',{class:'ng-t mono'},g) : null,
       ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id,title:NAV_HINT[id]},
@@ -230,7 +230,6 @@ function render(){
   if(pageView==='progetto'){ const p = get('progetti',route.id); title = p ? p.nome : 'progetto'; eyebrow = h('a',{href:'#progetti'},'← progetti'); }
   const content = h('div',{class:'content'+(['oggi','scrivania','calendario'].includes(pageView)?' wide':'')+(pageView==='mappa'?' full':'')},
     h('header',{class:'tbar'},
-      h('button',{class:'navbtn','aria-label':navOpen?'Chiudi il menu':'Apri il menu',onclick:()=>setNav(!navOpen)}, navOpen ? '←' : '→'),
       logo(),
       h('span',{class:'tbar-d mono'}, new Date().toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}))));
   if(!['scrivania','mappa'].includes(pageView)) content.append(
@@ -249,7 +248,8 @@ function render(){
   const curView = route.view; if(route.desk) route.view = 'scrivania';
   VIEWFN[route.view](main);
   route.view = curView;
-  app.append(h('div',{class:'shell'}, side, content), h('div',{class:'nav-scrim',onclick:()=>setNav(false)}));
+  app.append(h('button',{class:'menu-strip',onclick:()=>setNav(true),'aria-label':'Apri il menu'}, h('span',null,'Menu')),
+    h('div',{class:'shell'}, side, content), h('div',{class:'nav-scrim',onclick:()=>setNav(false)}));
   document.body.classList.toggle('nav-open', navOpen);
   document.body.dataset.view = pageView;
   if(route.desk && route.view !== 'scrivania'){ app.append(deskOverlay()); const fo = $('.fo'); if(fo) fo.scrollTop = ovScroll; document.body.classList.add('ov-open'); } else document.body.classList.remove('ov-open');
@@ -259,7 +259,7 @@ function render(){
 }
 let renderKeepScroll = true;
 let navOpen = false;
-function setNav(v){ navOpen = v; document.body.classList.toggle('nav-open', v); const b = $('.navbtn'); if(b){ b.textContent = v ? '←' : '→'; b.setAttribute('aria-label', v ? 'Chiudi il menu' : 'Apri il menu'); } }
+function setNav(v){ navOpen = v; document.body.classList.toggle('nav-open', v); }
 const VIEWFN = {scrivania:vScrivania, oggi:vOggi, mappa:vMappa, settimana:vSett, progetti:vProgetti, progetto:vProgetto, attesa:vAttesa, pratiche:vPratiche, clienti:vClienti, fatte:vFatte, studio:vStudio, generali:vGenerali, calendario:vCalendario};
 function sheetAltro(){
   openSheet(h('h3',null,'menu'),
@@ -370,7 +370,7 @@ function nuovaAttivita(p){
 function section(el, title, items, opts={}){
   if(!items.length && !opts.keep) return;
   const box = h('section',{class:'grp'+(opts.late?' late':'')});
-  box.append(h('h2',null, h('span',{class:'t'},title), h('span',{class:'n mono'},items.length ? String(items.length) : '—'), opts.acts||null));
+  box.append(h('h2',null, h('span',{class:'t'},title), items.length ? h('span',{class:'n'},items.length) : null, opts.acts||null));
   const lst = h('div',{class: items.length && items.every(x=>x.__pratica) ? 'plist' : 'list'});
   if(!items.length && opts.emptyText) lst.append(h('div',{class:'empty sm'},opts.emptyText));
   items.forEach(x => lst.append(x.__pratica ? rowPratica(x.p) : (opts.row||rowAtt)(x)));
@@ -399,11 +399,7 @@ function vOggi(el){
   const prat = catFilter && catFilter!=='pa' ? [] : praticheAperte().filter(p=>p.scadenza && diff(p.scadenza)<=0).sort(sortA).map(asP);
   const doneToday = att().filter(a=>!a.ogni_giorno && a.fatta && a.fatta_il && ds(new Date(a.fatta_il))===td && !(a.in_oggi===td && a.ora_oggi));
   const late = inbox.filter(a=>a.scadenza && diff(a.scadenza)<0).length + prat.filter(x=>diff(x.scadenza)<0).length;
-  el.append(h('div',{class:'stats'},
-    stat('da fare oggi', inbox.length + timed.filter(a=>!a.fatta).length + daily.filter(a=>!isDone(a)).length, {cls:'ink'}),
-    stat('scadute', late, {cls: late ? 'hot' : ''}),
-    stat('in programma con un orario', timed.filter(a=>!a.fatta).length, {cls:'c-pa'}),
-    stat('in attesa di altri', counts.attesa||0, {cls:'c-amm', href:'#attesa'})));
+
 
   const left = h('div',{class:'day-l'});
   const ib = h('section',{class:'grp'},
@@ -443,57 +439,57 @@ function tabSvg(){
   return s;
 }
 function folder(o){
-  return h('a',{class:'folder'+(o.hot?' hot':'')+(o.ghost?' fd-new':''),href:o.href||'#',style:`--f:${o.color||'#fff'}`,
+  return h('a',{class:'folder'+(o.hot?' hot':'')+(o.color==='#111'?' dark':'')+(o.ghost?' fd-new':''),href:o.href||'#',style:`--f:${o.color||'#fff'}`,
       onclick:e=>{ const r = e.currentTarget.getBoundingClientRect(); openFrom = {x:r.left + r.width/2, y:r.top + r.height/2};
         if(o.onclick){ e.preventDefault(); o.onclick(); } }},
     tabSvg(),
-    h('div',{class:'fd-top'}, h('span',{class:'fd-sq'}), o.count != null ? h('span',{class:'fd-n'}, o.count) : null),
+    h('div',{class:'fd-top'}, o.hot ? h('span',{class:'fd-sq',title:'Qualcosa è scaduto'}) : h('span'), o.count != null ? h('span',{class:'fd-n'}, o.count) : null),
     h('div',{class:'fd-t'}, o.title),
     o.sub ? h('div',{class:'fd-s'}, o.sub) : null,
     o.items && o.items.length ? h('ul',{class:'fd-l'}, o.items.slice(0,3).map(t => h('li',null,t))) : null,
-    h('div',{class:'fd-f'}, h('span',{class:'mono'}, o.foot||''), h('span',{class:'fd-a'}, ARROW())));
+    h('div',{class:'fd-f'}, h('span',{class:'fd-due'}, o.foot||''), h('span',{class:'fd-a'}, ARROW())));
 }
 function vScrivania(el){
   const td = today(), open = att().filter(a => !isDone(a));
+  const firstDue = xs => xs.map(x => x.scadenza).filter(Boolean).sort()[0];
+  const lateOf = xs => xs.filter(x => x.scadenza && diff(x.scadenza) < 0).length;
+  const lateTxt = n => n ? n + (n === 1 ? ' scaduta' : ' scadute') : null;
   const todays = att().filter(a => inToday(a) && !isDone(a) && !a.ogni_giorno);
   const timed = todays.filter(a => a.in_oggi === td && a.ora_oggi).sort((a,b)=>cmpIt(a.ora_oggi,b.ora_oggi));
-  const nextT = timed.find(a => a.ora_oggi >= pad(new Date().getHours())+':'+pad(new Date().getMinutes()));
   const week = open.filter(a => !a.ogni_giorno && a.scadenza && diff(a.scadenza) < 7).sort(sortA);
   const wait = open.filter(isWaiting).sort(sortA);
-  const pr = praticheAperte().sort(sortA), integr = pr.filter(p => p.stato === 'integrazioni richieste');
-  const lateN = todays.filter(a => a.scadenza && diff(a.scadenza) < 0).length;
-  const shelf = (title, hint, kids, add) => h('section',{class:'shelf'}, h('h2',null, h('span',{class:'t'},title), add ? h('button',{class:'shelf-add',onclick:add.fn,title:add.title,'aria-label':add.title},'+') : null, h('span',{class:'acts'},hint)), h('div',{class:'folders'}, kids));
-  el.append(shelf('La giornata', '', [
-    folder({href:'#scrivania/oggi', title:'Oggi', color:'#F06D3B', count:counts.oggi||0, hot: lateN > 0,
-      sub: lateN ? lateN + (lateN === 1 ? ' scaduta' : ' scadute') : (timed.length ? timed.length + ' con un orario' : 'Da organizzare'),
-      items: timed.map(a => a.ora_oggi + '  ' + a.titolo).concat(todays.filter(a => !timed.includes(a)).map(a => a.titolo)),
-      foot: nextT ? 'Prossima alle ' + nextT.ora_oggi : new Date().toLocaleDateString('it-IT',{day:'numeric',month:'short'})}),
-    folder({href:'#scrivania/settimana', title:'Prossimi 7 giorni', color:'#E9C85A', count:counts.settimana||0,
-      items: week.map(a => SHORT_DAY(a.scadenza) + ' · ' + a.titolo), foot: week[0] ? 'Prima: ' + dueLabel(week[0].scadenza) : 'Niente in scadenza'}),
-    folder({href:'#scrivania/attesa', title:'In attesa di altri', color:'#E7DAEA', count:wait.length,
-      items: wait.map(a => (a.attesa_chi||'Qualcuno') + ' · ' + a.titolo), foot: wait.length ? 'Da sollecitare' : 'Nessuno da aspettare'}),
-    folder({href:'#scrivania/pratiche', title:'Pratiche edilizie', color:'#DCEDF2', count:pr.length, hot: integr.length > 0,
-      sub: integr.length ? integr.length + ' con integrazioni richieste' : null,
-      items: pr.map(p => p.tipo + ' · ' + ((get('progetti',p.progetto_id)||{}).comune || p.comune || '')), foot: pr.find(p=>p.scadenza) ? 'Scadenza ' + dueLabel(pr.find(p=>p.scadenza).scadenza) : 'Nessuna scadenza'})
-  ]));
+  const pr = praticheAperte().sort(sortA), integr = pr.filter(p => p.stato === 'integrazioni richieste').length;
+  /* Regola unica per ogni cartella: numero = quante cose contiene; riga sotto il titolo = cosa scotta (solo se c'è);
+     elenco = le prime cose dentro; piede = la scadenza più vicina. */
+  const F = (o, xs, extraHot) => { const late = lateOf(xs), due = firstDue(xs);
+    return folder({...o, count: xs.length, hot: late > 0 || !!extraHot, sub: [lateTxt(late), extraHot].filter(Boolean).join(' · ') || null,
+      foot: due ? dueLabel(due) : ''}); };
+  const shelf = (title, kids, add) => h('section',{class:'shelf'},
+    h('h2',null, h('span',{class:'t'},title), add ? h('button',{class:'shelf-add',onclick:add.fn,title:add.title,'aria-label':add.title},'+') : null),
+    h('div',{class:'folders'}, kids));
   const W = {alta:0, media:1, bassa:2};
   const ps = progetti().filter(p => p.stato === 'attivo');
-  el.append(shelf('Progetti in corso', ps.length + (ps.length === 1 ? ' progetto' : ' progetti'), ps.map((p, i) => {
-    const its = open.filter(a => a.progetto_id === p.id).sort((a,b) => W[prioOf(a)] - W[prioOf(b)] || sortA(a,b));
-    const prox = its.concat(pr.filter(x => x.progetto_id === p.id)).map(x => x.scadenza).filter(Boolean).sort()[0];
-    const cl = get('clienti', p.cliente_id);
-    return folder({href:'#scrivania/progetto/'+p.id, title:p.nome, color:FOLDER_COLORS[i % FOLDER_COLORS.length], count:its.length,
-      sub:[cl && cl.nome, p.comune].filter(Boolean).join(' · '), items: its.map(a => a.titolo), hot: prox && diff(prox) < 0,
-      foot: prox ? dueLabel(prox) : 'Nessuna scadenza'});
-  }), {fn:()=>sheetProgetto(), title:'Nuovo progetto'}));
   const orph = open.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
-  const doneW = att().filter(a => a.fatta && a.fatta_il && diff(ds(new Date(a.fatta_il))) > -7);
   const paused = progetti().filter(p => p.stato === 'in pausa');
-  el.append(shelf('Studio', '', [
-    folder({href:'#scrivania/generali', title:'Studio e generali', color:'#ffffff', count:orph.length, items: orph.map(a => a.titolo), foot:'Senza progetto'}),
-    paused.length ? folder({href:'#progetti', title:'In pausa', color:'#eeeae4', count:paused.length, items: paused.map(p => p.nome), foot:'Progetti fermi'}) : null,
-    folder({href:'#scrivania/fatte', title:'Completate', color:'#f3f1ec', count:doneW.length, items: doneW.sort((a,b)=>cmpIt(b.fatta_il,a.fatta_il)).map(a => '✓ ' + a.titolo), foot:'Ultimi 7 giorni'})
-  ].filter(Boolean)));
+  el.append(h('div',{class:'desk'},
+    shelf('La giornata', [
+      F({href:'#scrivania/oggi', title:'Oggi', color:'#111', items: timed.map(a => a.ora_oggi + ' ' + a.titolo).concat(todays.filter(a => !timed.includes(a)).map(a => a.titolo))}, todays),
+      F({href:'#scrivania/settimana', title:'Prossimi 7 giorni', color:'#E9C85A', items: week.map(a => SHORT_DAY(a.scadenza) + ' · ' + a.titolo)}, week),
+      F({href:'#scrivania/attesa', title:'In attesa di altri', color:'#E7DAEA', items: wait.map(a => (a.attesa_chi||'Qualcuno') + ' · ' + a.titolo)}, wait),
+      F({href:'#scrivania/pratiche', title:'Pratiche edilizie', color:'#DCEDF2', items: pr.map(p => p.tipo + ' · ' + ((get('progetti',p.progetto_id)||{}).comune || p.comune || ''))}, pr,
+        integr ? integr + (integr === 1 ? ' integrazione richiesta' : ' integrazioni richieste') : null)
+    ]),
+    shelf('Progetti in corso', ps.map((p, i) => {
+      const its = open.filter(a => a.progetto_id === p.id).sort((a,b) => W[prioOf(a)] - W[prioOf(b)] || sortA(a,b));
+      return F({href:'#scrivania/progetto/'+p.id, title:p.nome, color:FOLDER_COLORS[i % FOLDER_COLORS.length], items: its.map(a => a.titolo)},
+        its.concat(pr.filter(x => x.progetto_id === p.id)));
+    }), {fn:()=>sheetProgetto(), title:'Nuovo progetto'}),
+    shelf('Studio', [
+      F({href:'#scrivania/generali', title:'Generali', color:'#ffffff', items: orph.map(a => a.titolo)}, orph),
+      paused.length ? folder({href:'#progetti', title:'In pausa', color:'#eeeae4', count:paused.length, items: paused.map(p => p.nome), foot:''}) : null,
+      folder({href:'#scrivania/fatte', title:'Completate', color:'#f3f1ec', count: att().filter(a => a.fatta).length,
+        items: att().filter(a => a.fatta).sort((a,b)=>cmpIt(b.fatta_il,a.fatta_il)).map(a => a.titolo), foot:''})
+    ].filter(Boolean))));
 }
 function vGenerali(el){
   const its = att().filter(a => !isDone(a) && (!a.progetto_id || !get('progetti', a.progetto_id))).sort(sortA);
@@ -503,28 +499,29 @@ function vGenerali(el){
 function deskFolderInfo(){
   if(route.view === 'progetto'){ const p = get('progetti', route.id); const i = progetti().filter(x=>x.stato==='attivo').indexOf(p);
     return {title: p ? p.nome : 'Progetto', color: FOLDER_COLORS[Math.max(0,i) % FOLDER_COLORS.length], sub:'Progetto'}; }
-  return ({oggi:{title:'Oggi', color:'#F06D3B', sub:new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})},
+  return ({oggi:{title:'Oggi', color:'#111', sub:new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})},
     settimana:{title:'Prossimi 7 giorni', color:'#E9C85A', sub:'Scadenze'}, attesa:{title:'In attesa di altri', color:'#E7DAEA', sub:'Cose ferme'},
     pratiche:{title:'Pratiche edilizie', color:'#DCEDF2', sub:'Pratiche'}, generali:{title:'Studio e generali', color:'#ffffff', sub:'Senza progetto'},
     fatte:{title:'Completate', color:'#f3f1ec', sub:'Storico'}})[route.view] || {title:LABEL[route.view]||'', color:'#fff', sub:''};
 }
 let ovScroll = 0;
-function closeDesk(){ location.hash = '#scrivania'; }
+let showInfo = false;
+function closeDesk(){ showInfo = false; location.hash = '#scrivania'; }
 function deskOverlay(){
   const f = deskFolderInfo();
   const body = h('div',{class:'fo-body'});
   if(['oggi','settimana','attesa','progetto','generali'].includes(route.view)) body.append(quickAdd());
   VIEWFN[route.view](body);
-  const panel = h('div',{class:'fo-wrap'+(openFrom?' anim':''),style:`--f:${f.color}` + (openFrom ? `;--ox:${openFrom.x}px;--oy:${openFrom.y}px` : '')},
+  const panel = h('div',{class:'fo-wrap'+(openFrom?' anim':'')+(f.color==='#111'?' dark':''),style:`--f:${f.color}` + (openFrom ? `;--ox:${openFrom.x}px;--oy:${openFrom.y}px` : '')},
     tabSvg(),
     h('div',{class:'fo'},
       h('header',{class:'fo-h'},
-        h('div',{style:'min-width:0'}, h('div',{class:'fo-s mono'}, f.sub), h('div',{class:'fo-t'}, f.title)),
+        h('div',{style:'min-width:0'}, h('div',{class:'fo-t'}, f.title)),
         h('div',{class:'fo-a'},
           ['oggi','settimana','attesa','generali','progetto'].includes(route.view) ? h('button',{class:'btn sm pri',onclick:()=>sheetAttivita(null, route.view==='progetto' ? {progetto_id:route.id} : route.view==='oggi' ? {in_oggi:today()} : null)},'+ Attività') : null,
         ['pratiche','progetto'].includes(route.view) ? h('button',{class:'btn sm',onclick:()=>{ const p = get('progetti',route.id); sheetPratica(null, p ? {progetto_id:p.id, comune:p.comune} : null); }},'+ Pratica') : null,
-        route.view === 'progetto' ? h('button',{class:'btn sm',onclick:()=>sheetProgetto(get('progetti',route.id))},'Modifica') : null,
-          h('button',{class:'fo-x',onclick:closeDesk,'aria-label':'Chiudi'},'Chiudi ×'))),
+        route.view === 'progetto' ? h('button',{class:'btn sm'+(showInfo?' on':''),onclick:()=>{ showInfo = !showInfo; render(); }},'Dati del progetto') : null,
+          h('button',{class:'x',onclick:closeDesk,'aria-label':'Chiudi'},'×'))),
       body));
   openFrom = null;
   return h('div',{class:'desk-ov',onclick:e=>{ if(e.target === e.currentTarget) closeDesk(); }}, panel);
@@ -607,75 +604,88 @@ addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('.ctx')) return 
 /* ----- mappa: piano libero, progetti come nodi, attività come etichette sfumate ----- */
 let mapDragging = false;
 const hashN = s => { let x = 0; for(const c of String(s)) x = (x*31 + c.charCodeAt(0)) | 0; return Math.abs(x); };
+let mapShow = (() => { try { const v = JSON.parse(lsGet('mapshow')); if(Array.isArray(v) && v.length) return new Set(v); } catch(e){} return new Set(PRIO); })();
 function vMappa(el){
-  const items = att().filter(a => !isDone(a) && !a.ogni_giorno);
-  const groups = progetti().filter(p => p.stato !== 'chiuso')
-    .map(p => ({p, its: items.filter(a => a.progetto_id === p.id)}))
-    .filter(g => g.its.length || g.p.stato === 'attivo');
+  const all = att().filter(a => !isDone(a) && !a.ogni_giorno);
+  const items = all.filter(a => mapShow.has(prioOf(a)));
+  const filt = h('div',{class:'map-filter'},
+    ['alta','media','bassa'].map(p => h('button',{class:'mf p-'+p+(mapShow.has(p)?' on':''),'aria-pressed':String(mapShow.has(p)),
+      onclick:()=>{ if(mapShow.has(p)){ if(mapShow.size > 1) mapShow.delete(p); } else mapShow.add(p); lsSet('mapshow', JSON.stringify([...mapShow])); render(); }},
+      h('span',{class:'mf-box'}), h('span',{class:'mf-dot'}), cap(p), h('span',{class:'mf-n'}, all.filter(a => prioOf(a) === p).length))));
+  const groups = progetti().filter(p => p.stato !== 'chiuso').map(p => ({p, its: items.filter(a => a.progetto_id === p.id)})).filter(g => g.its.length);
   const orph = items.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
   if(orph.length) groups.push({p:null, its:orph});
-  if(!groups.length) return empty(el,'Nessuna attività aperta.');
-  const W = Math.max(320, innerWidth - (innerWidth >= 900 ? 48 : 0));
-  const cols = W < 700 ? 1 : W < 1250 ? 2 : 3, cw = W / cols;
-  const lay = groups.map(g => { const n = g.its.length; const rx = Math.min(cw*0.30, 80 + n*12); const ry = Math.max(60, rx*0.6 + n*5); return {...g, rx, ry, hgt: Math.max(260, ry*2*1.5 + 110)}; });
-  const rowsH = []; lay.forEach((g,i) => { const r = Math.floor(i/cols); rowsH[r] = Math.max(rowsH[r]||0, g.hgt); });
-  let H = 40; const rowTop = rowsH.map(hh => { const t = H; H += hh; return t; }); H += 40;
+  const wrap = h('div',{class:'mapwrap'}, filt);
+  el.append(wrap);
+  if(!groups.length){ wrap.append(h('div',{class:'empty'},'Nessuna attività con questa priorità.')); return; }
+  const W = Math.max(300, innerWidth - (innerWidth >= 900 ? 122 : 18)), Hv = Math.max(420, innerHeight - 92);
+  const small = W < 700, K = small ? .72 : 1;
+  const SZ = small ? {alta:{fs:15,mw:170,px:14,py:8}, media:{fs:12.5,mw:140,px:11,py:6}, bassa:{fs:11,mw:120,px:9,py:4}}
+                   : {alta:{fs:19,mw:230,px:20,py:11}, media:{fs:14,mw:190,px:14,py:7}, bassa:{fs:12,mw:160,px:10,py:4}};
+  const box = a => { const z = SZ[prioOf(a)], t = (a.titolo||'').length * z.fs * .54, inner = z.mw - 2*z.px;
+    const lines = Math.max(1, Math.ceil(t / inner)); const meta = prioOf(a) !== 'bassa' && (a.scadenza || isWaiting(a));
+    return {w: Math.min(z.mw, t + 2*z.px) + 16, h: lines * z.fs * 1.18 + 2*z.py + (meta ? 14 : 0) + 16}; };
+  const REST = {alta:105*K, media:165*K, bassa:225*K};
+  // 1. nodi: progetti su una spirale aurea attorno al centro, attività sui loro anelli
+  const hubs = [], nodes = [];
+  groups.forEach((g, i) => {
+    const seed = hashN(g.p ? g.p.id : 'none'), r = 230 * K * Math.sqrt(i), a0 = i * 2.39996;
+    const hb = {hub:true, g, x: Math.cos(a0) * r, y: Math.sin(a0) * r, rad: (REST.bassa + 40) * Math.min(1, .55 + g.its.length * .06)};
+    hubs.push(hb);
+    PRIO.slice().reverse().forEach((pr, ri) => {
+      const arr = g.its.filter(a => prioOf(a) === pr).sort(sortA);
+      arr.forEach((a, k) => { const ang = (seed % 360) * Math.PI / 180 + ri * .7 + k * 2*Math.PI / arr.length, bx = box(a);
+        nodes.push({a, hb, pr, w: bx.w, h: bx.h, x: hb.x + Math.cos(ang) * REST[pr], y: hb.y + Math.sin(ang) * REST[pr] * .8}); });
+    });
+  });
+  // 2. assestamento organico: molle verso il proprio progetto, repulsione tra tutti, gravità verso il centro
+  const ext = n => Math.max(n.w, n.h) * .5;
+  for(let it = 0, T = 1; it < 320; it++, T *= .992){
+    hubs.forEach(hb => { hb.fx = -hb.x * .012; hb.fy = -hb.y * .012; });
+    nodes.forEach(n => { n.fx = 0; n.fy = 0; const dx = n.x - n.hb.x, dy = n.y - n.hb.y, d = Math.hypot(dx, dy) || 1, k = (d - REST[n.pr]) * .06;
+      n.fx -= dx / d * k; n.fy -= dy / d * k; n.hb.fx += dx / d * k * .25; n.hb.fy += dy / d * k * .25; });
+    for(let i = 0; i < hubs.length; i++) for(let j = i+1; j < hubs.length; j++){
+      const A = hubs[i], B = hubs[j], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 1, m = A.rad + B.rad;
+      if(d < m){ const f = (m - d) * .08; A.fx -= dx/d*f; A.fy -= dy/d*f; B.fx += dx/d*f; B.fy += dy/d*f; } }
+    for(let i = 0; i < nodes.length; i++){ const A = nodes[i];
+      for(let j = i+1; j < nodes.length; j++){ const B = nodes[j], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 1, m = ext(A) + ext(B) + 10;
+        if(d < m){ const f = (m - d) * .15; A.fx -= dx/d*f; A.fy -= dy/d*f; B.fx += dx/d*f; B.fy += dy/d*f; } }
+      hubs.forEach(hb => { const dx = A.x - hb.x, dy = A.y - hb.y, d = Math.hypot(dx, dy) || 1, m = ext(A) + 60;
+        if(d < m){ const f = (m - d) * .2; A.fx += dx/d*f; A.fy += dy/d*f; } }); }
+    hubs.forEach(hb => { hb.x += hb.fx * T; hb.y += hb.fy * T; });
+    nodes.forEach(n => { n.x += n.fx * T; n.y += n.fy * T; });
+  }
+  // 3. nessuna sovrapposizione, etichette dei progetti comprese
+  const rects = nodes.concat(hubs.map(hb => ({fixed:true, x:hb.x + 78, y:hb.y + 20, w:170, h:44})), hubs.map(hb => ({fixed:true, x:hb.x, y:hb.y, w:22, h:22})));
+  for(let it = 0; it < 200; it++){ let moved = false;
+    for(let i = 0; i < rects.length; i++) for(let j = i+1; j < rects.length; j++){
+      const A = rects[i], B = rects[j]; if(A.fixed && B.fixed) continue;
+      const dx = B.x - A.x, dy = B.y - A.y, ox = (A.w + B.w)/2 - Math.abs(dx), oy = (A.h + B.h)/2 - Math.abs(dy);
+      if(ox <= 0 || oy <= 0) continue; moved = true;
+      const sx = dx >= 0 ? 1 : -1, sy = dy >= 0 ? 1 : -1, fa = A.fixed ? 0 : B.fixed ? 1 : .5, fb = 1 - fa;
+      if(ox < oy) { A.x -= sx*ox*fa; B.x += sx*ox*fb; } else { A.y -= sy*oy*fa; B.y += sy*oy*fb; } }
+    if(!moved) break; }
+  // 4. centrare nel foglio
+  const minX = Math.min(...rects.map(r => r.x - r.w/2)), maxX = Math.max(...rects.map(r => r.x + r.w/2));
+  const minY = Math.min(...rects.map(r => r.y - r.h/2)), maxY = Math.max(...rects.map(r => r.y + r.h/2));
+  const H = Math.max(Hv, maxY - minY + 120), ox = W/2 - (minX + maxX)/2, oy = H/2 - (minY + maxY)/2 + 20;
+  const sc = Math.min(1, (W - 24) / (maxX - minX));
+  const X = x => W/2 + (x + ox - W/2) * sc, Y = y => y + oy;
   const cv = h('div',{class:'mapcv',style:`height:${H}px`});
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('class','mapsvg'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   cv.append(svg);
-  const hubs = [], paths = {}, pills = {};
-  const curve = (x1,y1,x2,y2) => { const mx = (x1+x2)/2; return `M${x1},${y1} C${x1},${(y1+y2)/2 - 40} ${mx},${y2} ${x2},${y2}`; };
-  const line = (d, cls) => { const p = document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d', d); p.setAttribute('class', cls||''); svg.append(p); return p; };
-  const small = W < 700;
-  const SZ = small ? {alta:{fs:15,mw:170,px:14,py:8}, media:{fs:12.5,mw:140,px:11,py:6}, bassa:{fs:11,mw:130,px:9,py:4}}
-                   : {alta:{fs:20,mw:240,px:22,py:12}, media:{fs:15,mw:210,px:16,py:8}, bassa:{fs:12,mw:180,px:11,py:5}};
-  const box = (a) => { const z = SZ[prioOf(a)], t = (a.titolo||'').length * z.fs * .54, inner = z.mw - 2*z.px;
-    const lines = Math.max(1, Math.ceil(t / inner)); const meta = prioOf(a) !== 'bassa' && (a.scadenza || isWaiting(a));
-    return {w: Math.min(z.mw, t + 2*z.px) + 14, h: lines * z.fs * 1.18 + 2*z.py + (meta ? 14 : 0) + 14}; };
-  const nodes = [];
-  lay.forEach((g, i) => {
-    const r = Math.floor(i/cols), c = i % cols, seed = hashN(g.p ? g.p.id : 'none');
-    const hx = cw*(c+0.5) + ((seed % 21) - 10) / 100 * cw * (small ? .3 : 1), hy = rowTop[r] + rowsH[r]/2 + ((seed % 17) - 8) * 3;
-    const hb = {g, x:hx, y:hy}; hubs.push(hb);
-    nodes.push({fixed:true, x:hx + 80, y:hy + 22, w:170, h:44}, {fixed:true, x:hx, y:hy, w:24, h:24});
-    const off = (seed % 360) * Math.PI / 180, RING = {alta:.5, media:1, bassa:1.45};
-    PRIO.slice().reverse().forEach((pr, ri) => {
-      const arr = g.its.filter(a => prioOf(a) === pr).sort(sortA);
-      arr.forEach((a, k) => {
-        const ang = off + ri * .6 + k * 2*Math.PI / arr.length, bx = box(a);
-        nodes.push({a, hb, fixed:false, w: bx.w, h: bx.h, x: hx + Math.cos(ang) * g.rx * RING[pr], y: hy + Math.sin(ang) * g.ry * RING[pr]});
-      });
-    });
+  const curve = (x1,y1,x2,y2) => `M${x1},${y1} C${x1 + (x2-x1)*.15},${y1 + (y2-y1)*.7} ${x1 + (x2-x1)*.6},${y2} ${x2},${y2}`;
+  nodes.forEach(n => {
+    const key = n.hb.g.p ? n.hb.g.p.id : 'none';
+    const pa = document.createElementNS('http://www.w3.org/2000/svg','path');
+    pa.setAttribute('d', curve(X(n.hb.x), Y(n.hb.y), X(n.x), Y(n.y))); pa.setAttribute('class','p-'+n.pr); pa.dataset.hub = key; pa.dataset.id = n.a.id; svg.append(pa);
+    const pl = pill(n.a, X(n.x), Y(n.y)); pl.dataset.hub = key; cv.append(pl);
   });
-  for(let it = 0; it < 160; it++){
-    let moved = false;
-    for(let i = 0; i < nodes.length; i++) for(let j = i+1; j < nodes.length; j++){
-      const A = nodes[i], B = nodes[j]; if(A.fixed && B.fixed) continue;
-      const dx = B.x - A.x, dy = B.y - A.y, ox = (A.w + B.w)/2 - Math.abs(dx), oy = (A.h + B.h)/2 - Math.abs(dy);
-      if(ox <= 0 || oy <= 0) continue; moved = true;
-      const sx = dx >= 0 ? 1 : -1, sy = dy >= 0 ? 1 : -1, fa = A.fixed ? 0 : B.fixed ? 1 : .5, fb = 1 - fa;
-      if(ox < oy * 1.6){ A.x -= sx*ox*fa; B.x += sx*ox*fb; } else { A.y -= sy*oy*fa; B.y += sy*oy*fb; }
-    }
-    nodes.forEach(nd => { if(!nd.fixed){ nd.x = Math.max(nd.w/2 + 4, Math.min(W - nd.w/2 - 4, nd.x)); nd.y = Math.max(nd.h/2 + 10, nd.y); } });
-    if(!moved) break;
-  }
-  const maxY = Math.max(...nodes.map(nd => nd.y + nd.h/2)) + 50;
-  H = Math.max(maxY, 360); cv.style.height = H + 'px'; svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  nodes.filter(nd => nd.a).forEach(nd => {
-    const key = nd.hb.g.p ? nd.hb.g.p.id : 'none';
-    const pa = line(curve(nd.hb.x, nd.hb.y, nd.x, nd.y)); pa.dataset.hub = key; pa.dataset.id = nd.a.id; paths[nd.a.id] = pa;
-    const pl = pill(nd.a, nd.x, nd.y); pl.dataset.hub = key; pills[nd.a.id] = pl; cv.append(pl);
-  });
-  for(let i = 0; i < hubs.length; i++){
-    const A = hubs[i], B = hubs[(i+1) % hubs.length];
-    if(hubs.length > 1) line(`M${A.x},${A.y} C${A.x + 160},${A.y - 120} ${B.x - 160},${B.y + 120} ${B.x},${B.y}`, 'link');
-  }
-  hubs.forEach(hb => cv.append(h('div',{class:'hub',style:`left:${hb.x}px;top:${hb.y}px`,'data-hub':hb.g.p ? hb.g.p.id : 'none'},
-    h('span',{class:'sq'}),
-    h('span',{class:'hub-l'},
-      hb.g.p ? h('a',{href:'#scrivania/progetto/'+hb.g.p.id}, hb.g.p.nome) : h('span',null,'Senza progetto'),
-      hb.g.p && get('clienti', hb.g.p.cliente_id) ? h('em',null, get('clienti', hb.g.p.cliente_id).nome) : null))));
+  hubs.forEach(hb => { const key = hb.g.p ? hb.g.p.id : 'none', cl = hb.g.p && get('clienti', hb.g.p.cliente_id);
+    cv.append(h('div',{class:'hub',style:`left:${X(hb.x)}px;top:${Y(hb.y)}px`,'data-hub':key},
+      h('span',{class:'sq'}),
+      h('span',{class:'hub-l'}, hb.g.p ? h('a',{href:'#scrivania/progetto/'+hb.g.p.id}, hb.g.p.nome) : h('span',null,'Generali'), cl ? h('em',null, cl.nome) : null))); });
   const focus = (hub, id) => { cv.classList.add('focus'); cv.querySelectorAll('.hl,.hl2').forEach(x=>x.classList.remove('hl','hl2'));
     cv.querySelectorAll(`[data-hub="${hub}"]`).forEach(x=>x.classList.add('hl')); if(id) cv.querySelectorAll(`[data-id="${id}"]`).forEach(x=>x.classList.add('hl2')); };
   const unfocus = () => { cv.classList.remove('focus'); cv.querySelectorAll('.hl,.hl2').forEach(x=>x.classList.remove('hl','hl2')); };
@@ -688,11 +698,9 @@ function vMappa(el){
     lp = {x, y, t: setTimeout(() => { lp = null; focus(t.dataset.hub, id); ctxMenu(get('attivita', id), x, y); }, 480)}; });
   const lpCancel = e => { if(lp && (e.type !== 'pointermove' || Math.hypot(e.clientX-lp.x, e.clientY-lp.y) > 8)){ clearTimeout(lp.t); lp = null; } };
   ['pointerup','pointercancel','pointermove'].forEach(ev => cv.addEventListener(ev, lpCancel));
-  el.append(h('div',{class:'mapwrap'}, cv,
-    h('div',{class:'map-leg'},
-      h('span',{class:'k-pill p-alta'},'Alta'), h('span',{class:'k-pill p-media'},'Media'), h('span',{class:'k-pill p-bassa'},'Bassa'),
-      h('span',{class:'map-leg-t'},'Priorità: più è grande, più è vicina al progetto. Tasto destro per modificare.'))));
+  wrap.append(cv);
 }
+
 function pill(a, x, y){
   const cat = CATMAP[a.categoria] ? a.categoria : 'stu', pr = prioOf(a);
   const late = a.scadenza && diff(a.scadenza) < 0, wait = isWaiting(a);
@@ -749,14 +757,14 @@ function vProgetto(el){
   if(!p) return empty(el,'Progetto non trovato: forse è stato eliminato.');
   const cl = get('clienti',p.cliente_id);
   const kv = (k,v) => v ? h('div',{class:'kv'}, h('div',{class:'k mono'},k), h('div',{class:'v'},v)) : null;
-  el.append(h('div',{class:'phead'},
+  if(!route.desk || showInfo) el.append(h('div',{class:'phead'},
     h('div',{class:'kvs'},
       kv('cliente', cl ? h('a',{href:'#',onclick:e=>{e.preventDefault();sheetCliente(cl);}},cl.nome) : null),
       kv('comune', p.comune), kv('indirizzo', p.indirizzo),
       kv('telefono', cl && cl.telefono ? h('a',{href:'tel:'+cl.telefono.replace(/\s/g,'')},cl.telefono) : null),
       kv('stato', h('span',{class:'pill st-'+p.stato.replace(' ','-')},p.stato))),
     p.note ? h('div',{class:'note'},p.note) : null,
-    h('div',{class:'btns'}, h('button',{class:'btn sm',onclick:()=>sheetProgetto(p)},'modifica progetto'))));
+    h('div',{class:'btns'}, h('button',{class:'btn sm',onclick:()=>sheetProgetto(p)},'modifica'))));
   const prat = list('pratiche').filter(x=>x.progetto_id===p.id).sort(sortA);
   section(el,'pratiche',prat.filter(x=>x.stato!=='conclusa').map(asP),{keep:true,emptyText:'nessuna pratica aperta',
     acts:h('span',{class:'acts'},h('button',{onclick:()=>sheetPratica(null,{progetto_id:p.id, comune:p.comune})},'+ pratica'))});
@@ -831,19 +839,17 @@ function rowAtt(a, o={}){
   const meta = h('div',{class:'meta'});
   const p = get('progetti',a.progetto_id);
   if(p && route.view !== 'progetto') meta.append(h('a',{class:'prj',href:'#scrivania/progetto/'+p.id,onclick:e=>e.stopPropagation()},p.nome));
-  meta.append(h('span',{class:'cat'},CATMAP[cat].name));
   if(a.ogni_giorno) meta.append(h('span',null,'ogni giorno'));
   else if(a.scadenza && !done){ const n = diff(a.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null},dueLabel(a.scadenza))); }
   if(!a.ogni_giorno && !done && a.in_oggi && a.in_oggi<=today() && route.view!=='oggi') meta.append(h('span',null,'in programma oggi'));
   if(a.note) meta.append(h('span',null,'· nota'));
-  if(prioOf(a) !== 'media' && !done) meta.prepend(h('span',{class:'prio-t mono p-'+prioOf(a)}, prioOf(a)));
   const body = h('div',{class:'tb',onclick:()=>sheetAttivita(a)}, h('div',{class:'tt'},a.titolo||'(senza titolo)'), meta);
   if(wait) body.append(h('div',{class:'waitline'},
     h('span',null,'aspetti ',h('b',null,a.attesa_chi||'qualcuno'), a.attesa_cosa?' — '+a.attesa_cosa:''),
     h('button',{onclick:e=>{e.stopPropagation(); save('attivita',{...a,attesa_chi:'',attesa_cosa:''}); toast('sbloccata: ora tocca a voi');}},'sbloccata')));
   const who = get('membri',a.assegnata_a);
   const showWho = who && (scope==='studio' || who.id!==me.id);
-  const row = h('div',{class:'task'+(done?' done':'')+(wait?' wait':'')+(o.compact?' compact':'')+(prioOf(a)==='alta'&&!done?' hi':''),style:catStyle(cat)},
+  const row = h('div',{class:'task p-'+prioOf(a)+(done?' done':'')+(wait?' wait':'')+(o.compact?' compact':''),style:catStyle(cat),title:CATMAP[cat].name+' · priorità '+prioOf(a)},
     o.drag ? h('span',{class:'grip','aria-label':'trascina'}) : null,
     h('button',{class:'chk','aria-label':done?'segna da fare':'segna fatta',onclick:()=>toggle(a)}), body,
     showWho ? h('div',{class:'who',title:nomeMembro(who)},iniziali(who).toUpperCase()) : null);
@@ -875,7 +881,7 @@ const ov = $('#ov'), sheet = $('#sheet');
 function closeSheet(){ ov.hidden = true; sheet.innerHTML = ''; }
 ov.addEventListener('click', e => { if(e.target === ov) closeSheet(); });
 addEventListener('keydown', e => { if(e.key === 'Escape' && !ov.hidden) closeSheet(); });
-function openSheet(...kids){ sheet.innerHTML=''; sheet.append(...kids.flat().filter(Boolean)); capAll(sheet); ov.hidden=false; sheet.scrollTop=0; }
+function openSheet(...kids){ sheet.innerHTML=''; sheet.append(h('button',{class:'x sheet-x',onclick:closeSheet,'aria-label':'Chiudi'},'×'), ...kids.flat().filter(Boolean)); capAll(sheet); ov.hidden=false; sheet.scrollTop=0; }
 const fld = (label, ...inputs) => h('div',{class:'f'}, h('label',null,label), ...inputs);
 const txt = (v, ph, type) => h('input',{type:type||'text', value:v||'', placeholder:ph||''});
 function delBtn(onConfirm, warning){
@@ -936,7 +942,7 @@ function sheetAttivita(a, preset){
     h('div',{class:'f'}, h('div',{class:'row-oggi'}, h('label',{class:'tog'},planned,'da fare oggi'), h('label',{class:'tog'},'alle ',ora)), h('label',{class:'tog'},daily,'ogni giorno (torna da fare ogni mattina)')),
     h('div',{class:'f waitbox'}, h('span',{class:'lb'},'prima bisogna aspettare che…'), wchi, dl, h('div',{style:'height:6px'}), wcosa),
     h('div',{class:'f'},note),
-    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'), h('button',{class:'btn',onclick:closeSheet},'annulla'),
+    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'),
       isNew ? null : delBtn(()=>{ remove('attivita',d.id); closeSheet(); toast('eliminata'); })));
   if(isNew) setTimeout(()=>title.focus(),50);
 }
@@ -968,7 +974,7 @@ function sheetProgetto(p){
     fld('nome',nome), fld('cliente',cli,nuovoCli),
     h('div',{class:'row2'}, fld('comune',comune,dlc), fld('stato',stato)),
     fld('indirizzo',ind), fld('note',note),
-    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'), h('button',{class:'btn',onclick:closeSheet},'annulla'),
+    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'),
       isNew ? null : delBtn(async ()=>{
         list('attivita').filter(a=>a.progetto_id===d.id).forEach(a=>D.attivita.set(a.id,{...a,progetto_id:null}));
         list('pratiche').filter(x=>x.progetto_id===d.id).forEach(x=>D.pratiche.delete(x.id));
@@ -1008,7 +1014,7 @@ function sheetPratica(p, preset){
     h('div',{class:'row2'}, fld('data di deposito',dep), fld('scadenza',due)),
     h('p',{style:'font-size:12px;color:var(--mute);margin:-4px 0 0'},'La scadenza è quella da tenere d’occhio: termine per le integrazioni, fine lavori, validità del titolo.'),
     fld('note',note),
-    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'), h('button',{class:'btn',onclick:closeSheet},'annulla'),
+    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'),
       isNew ? null : delBtn(()=>{ remove('pratiche',d.id); closeSheet(); })));
 }
 
@@ -1033,7 +1039,7 @@ function sheetCliente(c){
     fld('indirizzo',ind), fld('note',note),
     ps.length ? h('div',{class:'f'},h('span',{class:'lb'},'progetti'),
       ps.map(p=>h('div',null,h('a',{href:'#scrivania/progetto/'+p.id,onclick:closeSheet,style:'font-family:var(--display);font-size:18px'},p.nome)))) : null,
-    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'), h('button',{class:'btn',onclick:closeSheet},'annulla'),
+    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'),
       isNew ? null : delBtn(()=>{ remove('clienti',d.id); closeSheet(); }, ps.length?'I progetti restano, senza cliente.':'')));
   if(isNew) setTimeout(()=>nome.focus(),50);
 }
@@ -1057,7 +1063,7 @@ function sheetMembro(m){
     fld('email',em), fld('nome',nome), fld('ruolo',ruolo),
     h('div',{class:'f'},h('label',{class:'tog'},attivo,'attivo (può entrare nel gestionale)')),
     isNew ? h('p',{style:'font-size:13px;color:#444'},'Dopo il salvataggio, mandale l’indirizzo del gestionale: entrerà con “primo accesso: crea la password” usando questa stessa email.') : null,
-    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'), h('button',{class:'btn',onclick:closeSheet},'annulla')));
+    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva')));
 }
 
 function sheetImport(){
@@ -1084,7 +1090,7 @@ function sheetImport(){
     toast('Importati '+ps.length+' progetti e '+as.length+' attività');
   };
   openSheet(h('h3',null,'importa il backup'), h('div',{class:'f'},ta),
-    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:go},'importa'), h('button',{class:'btn',onclick:closeSheet},'annulla')), msg);
+    h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:go},'importa')), msg);
 }
 
 /* ---------------- accesso ---------------- */
@@ -1169,6 +1175,12 @@ sb.auth.onAuthStateChange((ev, session) => {
   const em = session && session.user && session.user.email ? session.user.email.toLowerCase() : '';
   if(em !== sessionEmail || (ev === 'SIGNED_IN' && !started)){ started = true; setTimeout(start, 0); }
 });
+if(matchMedia('(hover: hover) and (pointer: fine)').matches){
+  const cur = h('div',{class:'cur','aria-hidden':'true'}); document.body.append(cur); document.documentElement.classList.add('dot-cursor');
+  addEventListener('mousemove', e => { cur.style.transform = `translate3d(${e.clientX}px,${e.clientY}px,0)`; cur.classList.add('on');
+    cur.classList.toggle('big', !!e.target.closest('a,button,.folder,.mp,.task .tb,.cal-d,.card,.tile,.prat')); });
+  document.addEventListener('mouseleave', () => cur.classList.remove('on'));
+}
 let lastDay = today();
 setInterval(() => { if(today() !== lastDay){ lastDay = today(); render(); } }, 60000);
 document.addEventListener('visibilitychange', () => { if(!document.hidden && me){ loadAll().then(render).catch(()=>{}); } });

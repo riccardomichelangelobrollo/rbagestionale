@@ -93,3 +93,12 @@ Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiorna
 - **Scrivania** = home: solo le cartelle (più piccole), testata minima con logo e data piccola a destra; `+` accanto a "Progetti in corso" crea un progetto. Le cartelle aperte hanno i pulsanti "+ Attività", "+ Pratica", "Modifica" secondo il contenuto.
 - **Mappa** a tutta pagina, solo visualizzazione: attività disposte a cerchi intorno al progetto per priorità (alta vicina, bassa lontana); legenda fissa in basso; tasto destro / pressione lunga per modificare.
 - **Calendario** (`#calendario`, `vCalendario`): mese con le scadenze di attività e pratiche, clic su un giorno per creare un'attività con quella scadenza; "Scarica le scadenze (.ics)" (`scaricaIcs`) per Google/Apple/Outlook. Prossimo passo possibile: feed .ics sempre aggiornato tramite una Edge Function di Supabase con un indirizzo segreto per persona.
+
+### Revisione 5: pulizia (regole in testa a `style.css`, riscritto da zero)
+- Solo due caratteri: **Times New Roman grassetto per i titoli**, **Inter per i testi** (unica eccezione il logo R B A in Jost). Plex Mono e Syne tolti.
+- **Colori con gerarchia**: il tipo di attività dà il colore (`--c` tenue, `--cs` pieno, `--ci` inchiostro, via `catStyle`); la priorità dà il riempimento: alta = pieno, media = tenue, bassa = solo contorno. Tratteggio = in attesa. Arancio del sito = scaduto e puntatore.
+- **Puntatore** a pallino arancio come sul sito (`.cur`, si ingrandisce su ciò che si può cliccare).
+- **Menu**: scritta verticale "Menu" sul bordo sinistro (`.menu-strip`); la barra si chiude con la X. Margini della pagina sul bordo (nessuna larghezza massima).
+- **Scrivania** centrata nello schermo; "Oggi" è la cartella nera. Regola unica per ogni cartella: numero = quante cose contiene; riga in grassetto = cosa scotta (solo se c'è); elenco = le prime cose dentro; piede = la scadenza più vicina; pallino arancio = qualcosa è scaduto.
+- **Cartelle aperte**: pulsanti "+ Attività", "+ Pratica"; nei progetti i dati (cliente, comune, ecc.) stanno dietro "Dati del progetto". Ogni chiusura è una X (anche nelle schede: tolto "annulla").
+- **Mappa**: disposizione organica (molle verso il progetto secondo la priorità, repulsione, gravità verso il centro, poi nessuna sovrapposizione e centratura nel foglio). Filtro per priorità in alto (caselle Alta/Media/Bassa, ricordate nel browser).
