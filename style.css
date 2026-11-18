@@ -606,3 +606,9 @@ body.ov-open{overflow:hidden}
 .scad-f{flex-direction:row;align-items:center}
 .scad-f li{flex:none;max-width:280px}
 .mp-foot .link{text-transform:lowercase}
+
+/* la data, piccola, sempre in alto a destra */
+.top-date{position:fixed;top:16px;right:var(--pad);z-index:25;font-size:13px;color:var(--mute);text-transform:lowercase;pointer-events:none}
+.content.full{padding-top:44px}
+.top{padding-top:30px}
+@media(max-width:899px){ .top-date{top:12px;right:16px} .content,.content.full{padding-top:36px} }

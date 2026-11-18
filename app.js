@@ -225,12 +225,11 @@ function render(){
   const bbar = h('nav',{class:'bbar','aria-label':'Menu'},
     h('span',{class:'bb-logo'}, logo(), lateCount ? h('i',{class:'bb-dot',title:'Qualcosa è scaduto'}) : null),
     h('div',{class:'bb-items'}, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:'bb-i'+(active===id?' on':''), title:NAV_HINT[id]||null}, h('span',null,lab), ARROW()))),
-    h('span',{class:'bb-d'}, dataBreve),
     h('button',{class:'bb-acc'+(active==='studio'?' on':''),title:nomeMembro(me),'aria-label':'Account',onclick:e=>{ e.stopPropagation(); accPop(e.currentTarget); }}, iniziali(me).toUpperCase()),
     h('button',{class:'bb-menu','aria-expanded':String(navOpen),onclick:()=>setNav(!navOpen)}, h('span',{class:'m-open'},'Menu'), h('span',{class:'m-close'},'Chiudi')));
   const mpanel = h('div',{class:'mpanel',onclick:e=>{ if(e.target.closest('a')) setNav(false); }},
     h('nav',null, VOCI.map(([id, lab]) => h('a',{href:'#'+id, class:active===id?'on':null}, lab, ARROW()))),
-    h('div',{class:'mp-foot'}, h('span',null, dataBreve + ' · ' + nomeMembro(me)), h('a',{class:'link',href:'#studio'},'persone'), h('button',{class:'link',onclick:()=>{ setNav(false); logout(); }},'esci')));
+    h('div',{class:'mp-foot'}, h('span',null, nomeMembro(me)), h('a',{class:'link',href:'#studio'},'persone'), h('button',{class:'link',onclick:()=>{ setNav(false); logout(); }},'esci')));
   let title = LABEL[pageView] || '', eyebrow = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   if(pageView==='progetto'){ const p = get('progetti',route.id); title = p ? p.nome : 'progetto'; eyebrow = h('a',{href:'#progetti'},'← progetti'); }
   const content = h('div',{class:'content'+(['oggi','scrivania','calendario'].includes(pageView)?' wide':'')+(pageView==='mappa'?' full':'')},
@@ -251,7 +250,7 @@ function render(){
   const curView = route.view; if(route.desk) route.view = 'scrivania';
   VIEWFN[route.view](main);
   route.view = curView;
-  app.append(h('div',{class:'shell'}, content), h('div',{class:'nav-scrim',onclick:()=>setNav(false)}), mpanel, bbar);
+  app.append(h('div',{class:'top-date'}, dataBreve), h('div',{class:'shell'}, content), h('div',{class:'nav-scrim',onclick:()=>setNav(false)}), mpanel, bbar);
   document.body.classList.toggle('nav-open', navOpen);
   document.body.dataset.view = pageView;
   if(route.desk && route.view !== 'scrivania'){ app.append(deskOverlay()); const fo = $('.fo'); if(fo) fo.scrollTop = ovScroll; document.body.classList.add('ov-open'); } else document.body.classList.remove('ov-open');
