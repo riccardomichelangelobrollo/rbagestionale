@@ -142,15 +142,48 @@ function readHash(){
 addEventListener('hashchange', () => { readHash(); render(); scrollTo(0,0); });
 
 /* ---------------- render ---------------- */
+const LABEL = Object.fromEntries(VIEWS);
+const NAV_GROUPS = [['agenda',['oggi','settimana','attesa']],['archivio',['progetti','pratiche','clienti']],['studio',['fatte','studio']]];
+const TABS = ['oggi','settimana','progetti','pratiche'];
+const ICONS = {
+  oggi:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/>',
+  settimana:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  attesa:'<path d="M7 3h10M7 21h10M8 3v3.5l4 5 4-5V3M8 21v-3.5l4-5 4 5V21"/>',
+  progetti:'<path d="M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2h7.2a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  pratiche:'<path d="M14 3H7.5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7.5z"/><path d="M14 3v4.5h4.5M9 13h6M9 16.5h6"/>',
+  clienti:'<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c.6-3.6 3.7-5.5 7.5-5.5s6.9 1.9 7.5 5.5"/>',
+  fatte:'<circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.2l2.6 2.6 4.9-5.4"/>',
+  studio:'<circle cx="9" cy="8.5" r="3.2"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3 20c.5-3.2 2.9-5 6-5s5.5 1.8 6 5M15.6 14.3c2.6.1 4.6 1.6 5.2 4.2"/>',
+  altro:'<circle cx="5.5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18.5" cy="12" r="1.5"/>'
+};
+function icon(n){ const s = h('span',{class:'ico','aria-hidden':'true'}); s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+ICONS[n]+'</svg>'; return s; }
+let counts = {}, lateCount = 0;
+function newLabel(){
+  return ({clienti:'nuovo cliente', pratiche:'nuova pratica', progetti:'nuovo progetto'})[route.view]
+    || (route.view==='studio' && me.ruolo==='admin' ? 'aggiungi persona' : 'nuova attività');
+}
+const syncText = () => syncState==='live' ? 'sincronizzato' : syncState==='off' ? 'aggiornamenti non attivi: ricarica' : 'collegamento…';
+function scopeToggle(){
+  return h('div',{class:'scope',title:'mostra solo le tue attività o quelle di tutto lo studio'},
+    h('button',{class:scope==='mie'?'on':null,onclick:()=>{scope='mie';lsSet('scope',scope);render();}},'le mie'),
+    h('button',{class:scope==='studio'?'on':null,onclick:()=>{scope='studio';lsSet('scope',scope);render();}},'tutto lo studio'));
+}
+function meBox(){
+  return h('div',{class:'me'}, h('span',{class:'who'},iniziali(me).toUpperCase()),
+    h('div',{style:'min-width:0'}, h('div',{class:'me-n'},nomeMembro(me)),
+      h('div',{class:'me-r'}, me.ruolo==='admin'?'amministratore':'membro', ' · ', h('span',{class:syncState==='off'?'err':null},syncText()))));
+}
 function render(){
   const app = $('#app');
   if(!sb) return;
   if(!sessionEmail) return renderLogin(app);
   if(!me) return renderNonMembro(app);
   app.innerHTML = '';
-  const taskViews = ['oggi','settimana','attesa','fatte','progetto'];
+  document.body.classList.add('in');
+  const taskViews = ['oggi','settimana','attesa','fatte'];
   const open = att().filter(a => !isDone(a));
-  const counts = {
+  lateCount = open.filter(a => !a.ogni_giorno && a.scadenza && diff(a.scadenza) < 0).length;
+  counts = {
     oggi: att().filter(a => inToday(a) && !isDone(a)).length,
     settimana: open.filter(a => !a.ogni_giorno && a.scadenza && diff(a.scadenza) < 7).length + praticheAperte().filter(p=>p.scadenza && diff(p.scadenza)<7).length,
     progetti: progetti().filter(p => p.stato === 'attivo').length,
@@ -158,32 +191,48 @@ function render(){
     pratiche: praticheAperte().length,
     clienti: 0, fatte: 0, studio: 0
   };
-  app.append(
-    h('header', null,
-      h('div',{class:'tit'}, h('h1',null,'gestionale'),
-        h('div',{class:'day'}, new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}))),
-      h('div',{class:'scope',title:'mostra solo le tue attività o quelle di tutto lo studio'},
-        h('button',{class:scope==='mie'?'on':null,onclick:()=>{scope='mie';lsSet('scope',scope);render();}},'le mie'),
-        h('button',{class:scope==='studio'?'on':null,onclick:()=>{scope='studio';lsSet('scope',scope);render();}},'tutto lo studio'))),
-    h('nav',{class:'tabs'}, VIEWS.map(([id,label]) =>
-      h('a',{href:'#'+id, class:(route.view===id || (route.view==='progetto'&&id==='progetti'))?'on':null}, label, counts[id]?h('sup',null,counts[id]):null)))
-  );
+  const active = route.view==='progetto' ? 'progetti' : route.view;
+  const badge = id => counts[id] ? h('span',{class:'badge'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null;
+  const side = h('aside',{class:'side'},
+    h('a',{class:'brand',href:'#oggi'}, h('div',{class:'brand-t'},'gestionale'), h('div',{class:'brand-s'},CFG.nomeStudio||'')),
+    scopeToggle(),
+    h('nav',{class:'snav'}, NAV_GROUPS.map(([g,ids]) => h('div',{class:'ng'}, h('div',{class:'ng-t'},g),
+      ids.map(id => h('a',{class:'nl'+(active===id?' on':''),href:'#'+id}, icon(id), h('span',{class:'nl-t'},LABEL[id]), badge(id)))))),
+    h('div',{class:'side-foot'}, meBox(), h('button',{class:'link',onclick:logout},'esci')));
+  let title = LABEL[route.view] || '', eyebrow = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  if(route.view==='progetto'){ const p = get('progetti',route.id); title = p ? p.nome : 'progetto'; eyebrow = h('a',{href:'#progetti'},'← progetti'); }
+  const content = h('div',{class:'content'},
+    h('header',{class:'top'+(route.view==='progetto'?' long':'')},
+      h('div',{class:'top-t'}, h('div',{class:'eyebrow'},eyebrow), h('h1',null,title)),
+      h('div',{class:'top-a'}, h('div',{class:'only-m'},scopeToggle()),
+        h('button',{class:'btn pri only-d',onclick:fabAction},'+ '+newLabel()))));
+  if(route.view === 'oggi') content.append(oggiStats());
   if(taskViews.includes(route.view)){
+    if(route.view !== 'fatte') content.append(quickAdd());
     const lg = h('div',{class:'legend'+(catFilter?' filtered':'')});
     CATS.forEach(c => lg.append(h('button',{class:'chip'+(catFilter===c.id?' on':''),style:catStyle(c.id),
       onclick:()=>{catFilter = catFilter===c.id?null:c.id; render();}}, c.name)));
     lg.append(h('span',{class:'chip hatch',title:'le attività che aspettano qualcun altro hanno il fondo tratteggiato'},'in attesa di altri'));
-    app.append(lg);
-    if(route.view !== 'fatte') app.append(quickAdd());
+    content.append(lg);
   }
-  const main = h('main'); app.append(main);
+  const main = h('main'); content.append(main);
   ({oggi:vOggi, settimana:vSett, progetti:vProgetti, progetto:vProgetto, attesa:vAttesa,
     pratiche:vPratiche, clienti:vClienti, fatte:vFatte, studio:vStudio})[route.view](main);
-  app.append(h('footer',null,
-    h('span',null, nomeMembro(me), ' · ', me.ruolo === 'admin' ? 'amministratore' : 'membro'),
-    h('span',{class:syncState==='off'?'err':null}, syncState==='live' ? 'sincronizzato' : syncState==='off' ? 'aggiornamenti in tempo reale non attivi: ricarica la pagina' : 'collegamento…'),
-    h('button',{onclick:logout},'esci')));
+  const more = !TABS.includes(active);
+  const tabbar = h('nav',{class:'tabbar'},
+    TABS.map(id => h('a',{class:'tab'+(active===id?' on':''),href:'#'+id}, icon(id), h('span',null,id==='settimana'?'7 giorni':LABEL[id]),
+      counts[id] ? h('span',{class:'tb-b'+(id==='oggi'&&lateCount?' late':'')},counts[id]) : null)),
+    h('button',{class:'tab'+(more?' on':''),onclick:sheetAltro}, icon('altro'), h('span',null, more ? LABEL[active] : 'altro'),
+      counts.attesa ? h('span',{class:'tb-b'},counts.attesa) : null));
+  app.append(h('div',{class:'shell'}, side, content), tabbar);
   if(!$('.fab')) document.body.append(h('button',{class:'fab','aria-label':'nuovo',onclick:fabAction},'+'));
+}
+function sheetAltro(){
+  openSheet(h('h3',null,'altro'),
+    h('div',{class:'list'}, ['attesa','clienti','fatte','studio'].map(id => h('a',{class:'nl',href:'#'+id,onclick:closeSheet},
+      icon(id), h('span',{class:'nl-t'},LABEL[id]), counts[id] ? h('span',{class:'badge'},counts[id]) : null))),
+    h('div',{class:'f'}, meBox()),
+    h('div',{class:'btns'}, h('button',{class:'btn',onclick:()=>{closeSheet(); logout();}},'esci'), h('button',{class:'btn',onclick:closeSheet},'chiudi')));
 }
 function fabAction(){
   if(route.view === 'clienti') return sheetCliente();
@@ -211,12 +260,27 @@ function nuovaAttivita(p){
 
 function section(el, title, items, opts={}){
   if(!items.length && !opts.keep) return;
-  el.append(h('h2',{class:opts.late?'late':null}, h('span',{class:'t'},title), h('span',{class:'n'}, items.length||''), opts.acts||null));
-  if(!items.length && opts.emptyText) el.append(h('div',{class:'empty'},opts.emptyText));
-  items.forEach(x => el.append(x.__pratica ? rowPratica(x.p) : (opts.row||rowAtt)(x)));
+  const box = h('section',{class:'grp'+(opts.late?' late':'')});
+  box.append(h('h2',null, h('span',{class:'t'},title), items.length ? h('span',{class:'n'},items.length) : null, opts.acts||null));
+  const lst = h('div',{class:'list'});
+  if(!items.length && opts.emptyText) lst.append(h('div',{class:'empty sm'},opts.emptyText));
+  items.forEach(x => lst.append(x.__pratica ? rowPratica(x.p) : (opts.row||rowAtt)(x)));
+  box.append(lst); el.append(box);
 }
 const empty = (el, t) => el.append(h('div',{class:'empty'}, t));
 const asP = p => ({__pratica:true, p, scadenza:p.scadenza, created_at:p.created_at});
+function oggiStats(){
+  const rest = att().filter(a=>inToday(a) && !a.ogni_giorno && !isDone(a) && !isWaiting(a));
+  const prat = catFilter && catFilter!=='pa' ? [] : praticheAperte().filter(p=>p.scadenza && diff(p.scadenza)<=0);
+  return h('div',{class:'stats'},
+    stat('scadute', rest.filter(a=>a.scadenza && diff(a.scadenza)<0).length + prat.filter(x=>diff(x.scadenza)<0).length, {late:true}),
+    stat('da fare oggi', rest.filter(a=>!(a.scadenza && diff(a.scadenza)<0)).length + att().filter(a=>a.ogni_giorno && !isDone(a)).length + prat.filter(x=>diff(x.scadenza)===0).length),
+    stat('in attesa di altri', counts.attesa||0, {href:'#attesa'}),
+    stat('pratiche aperte', counts.pratiche||0, {href:'#pratiche'}));
+}
+function stat(lab, n, opts={}){
+  return h(opts.href?'a':'div',{class:'stat'+(opts.late&&n?' late':''),href:opts.href||null}, h('div',{class:'stat-n'},n), h('div',{class:'stat-l'},lab));
+}
 
 /* ----- viste ----- */
 function vOggi(el){
@@ -230,7 +294,7 @@ function vOggi(el){
   const doneToday = att().filter(a=>!a.ogni_giorno && a.fatta && a.fatta_il && ds(new Date(a.fatta_il))===today());
   if(!all.length && !prat.length && !doneToday.length) return empty(el,'Niente in programma per oggi. Dalle altre liste puoi mettere in programma le attività di oggi.');
   section(el,'scadute',late,{late:true});
-  section(el,'pratiche in scadenza',prat,{late:true});
+  section(el,'pratiche in scadenza',prat,{late:prat.some(x=>diff(x.scadenza)<0)});
   section(el,'da fare oggi',now);
   section(el,'ogni giorno',daily);
   section(el,'in scadenza, ma in attesa di altri',wait);
@@ -250,16 +314,16 @@ function vSett(el){
 }
 function vProgetti(el){
   const all = progetti();
-  el.append(h('div',{class:'toolbar'},
-    h('button',{class:'link',onclick:()=>sheetProgetto()},'+ nuovo progetto'),
-    all.some(p=>p.stato==='chiuso') ? h('button',{class:'link',onclick:()=>{showClosed=!showClosed;render();}}, showClosed?'nascondi i chiusi':'mostra i chiusi') : null));
+  if(all.some(p=>p.stato==='chiuso')) el.append(h('div',{class:'toolbar'},
+    h('button',{class:'link',onclick:()=>{showClosed=!showClosed;render();}}, showClosed?'nascondi i chiusi':'mostra i chiusi')));
   if(!all.length) return empty(el,'Ancora nessun progetto. Creane uno con il pulsante +.');
   STATI_PROGETTO.forEach(st => {
     if(st==='chiuso' && !showClosed) return;
     const ps = all.filter(p=>p.stato===st);
     if(!ps.length) return;
-    el.append(h('h2',null,h('span',{class:'t'}, st==='attivo'?'in corso':st==='in pausa'?'in pausa':'chiusi'), h('span',{class:'n'},ps.length)));
-    ps.forEach(p => el.append(cardProgetto(p)));
+    el.append(h('section',{class:'grp'},
+      h('h2',null,h('span',{class:'t'}, st==='attivo'?'in corso':st==='in pausa'?'in pausa':'chiusi'), h('span',{class:'n'},ps.length)),
+      h('div',{class:'grid'}, ps.map(cardProgetto))));
   });
   const orfane = att().filter(a=>!isDone(a) && (!a.progetto_id || !get('progetti',a.progetto_id))).sort(sortA);
   section(el,'attività senza progetto',orfane);
@@ -269,26 +333,28 @@ function cardProgetto(p){
   const aperte = list('attivita').filter(a=>a.progetto_id===p.id && !isDone(a));
   const prat = list('pratiche').filter(x=>x.progetto_id===p.id && x.stato!=='conclusa');
   const prox = aperte.concat(prat).map(x=>x.scadenza).filter(Boolean).sort()[0];
-  return h('a',{class:'card',href:'#progetto/'+p.id},
-    h('div',{style:'min-width:0'}, h('div',{class:'nm'},p.nome),
-      h('div',{class:'sub'}, [cl&&cl.nome, p.comune].filter(Boolean).join(' · ') || ' ')),
-    h('div',{class:'cnt'}, h('div',null,h('b',null,aperte.length),' attività · ',h('b',null,prat.length),' pratiche'),
-      prox ? h('div',{class:diff(prox)<0?'late-t':null}, dueLabel(prox)) : null));
+  const cats = [...new Set(aperte.map(a=>CATMAP[a.categoria]?a.categoria:'stu'))];
+  return h('a',{class:'tile'+(p.stato!=='attivo'?' dim':''),href:'#progetto/'+p.id},
+    h('div',{class:'tile-top'}, h('div',{class:'nm'},p.nome),
+      h('div',{class:'sub'}, [cl&&cl.nome, p.comune].filter(Boolean).join(' · ') || ' ')),
+    h('div',{class:'dots'}, cats.map(c => h('span',{class:'dot',style:catStyle(c),title:CATMAP[c].name}))),
+    h('div',{class:'tile-foot'},
+      h('span',null,h('b',null,aperte.length),' attività'), h('span',null,h('b',null,prat.length), prat.length===1?' pratica':' pratiche'),
+      prox ? h('span',{class:'due'+(diff(prox)<0?' late-t':'')}, dueLabel(prox)) : null));
 }
 function vProgetto(el){
   const p = get('progetti', route.id);
-  el.append(h('a',{class:'back',href:'#progetti'},'← progetti'));
   if(!p) return empty(el,'Progetto non trovato: forse è stato eliminato.');
   const cl = get('clienti',p.cliente_id);
+  const kv = (k,v) => v ? h('div',{class:'kv'}, h('div',{class:'k'},k), h('div',{class:'v'},v)) : null;
   el.append(h('div',{class:'phead'},
-    h('h2',null,h('span',{class:'t'},p.nome),h('span',{class:'acts'},h('button',{onclick:()=>sheetProgetto(p)},'modifica'))),
-    h('div',{class:'info'},
-      cl ? h('span',null,h('span',{class:'lab'},'cliente '), h('a',{href:'#',onclick:e=>{e.preventDefault();sheetCliente(cl);}},cl.nome)) : null,
-      p.comune ? h('span',null,h('span',{class:'lab'},'comune '),p.comune) : null,
-      p.indirizzo ? h('span',null,h('span',{class:'lab'},'indirizzo '),p.indirizzo) : null,
-      h('span',null,h('span',{class:'lab'},'stato '),p.stato),
-      cl && cl.telefono ? h('span',null,h('span',{class:'lab'},'tel. '),cl.telefono) : null),
-    p.note ? h('div',{class:'note'},p.note) : null));
+    h('div',{class:'kvs'},
+      kv('cliente', cl ? h('a',{href:'#',onclick:e=>{e.preventDefault();sheetCliente(cl);}},cl.nome) : null),
+      kv('comune', p.comune), kv('indirizzo', p.indirizzo),
+      kv('telefono', cl && cl.telefono ? h('a',{href:'tel:'+cl.telefono.replace(/\s/g,'')},cl.telefono) : null),
+      kv('stato', h('span',{class:'pill st-'+p.stato.replace(' ','-')},p.stato))),
+    p.note ? h('div',{class:'note'},p.note) : null,
+    h('div',{class:'btns'}, h('button',{class:'btn sm',onclick:()=>sheetProgetto(p)},'modifica progetto'))));
   const prat = list('pratiche').filter(x=>x.progetto_id===p.id).sort(sortA);
   section(el,'pratiche',prat.filter(x=>x.stato!=='conclusa').map(asP),{keep:true,emptyText:'nessuna pratica aperta',
     acts:h('span',{class:'acts'},h('button',{onclick:()=>sheetPratica(null,{progetto_id:p.id, comune:p.comune})},'+ pratica'))});
@@ -309,7 +375,6 @@ function vAttesa(el){
 }
 function vPratiche(el){
   el.append(h('div',{class:'toolbar'},
-    h('button',{class:'link',onclick:()=>sheetPratica()},'+ nuova pratica'),
     h('button',{class:'link',onclick:()=>{showConcluse=!showConcluse;render();}}, showConcluse?'nascondi le concluse':'mostra le concluse')));
   const all = list('pratiche');
   if(!all.length) return empty(el,'Nessuna pratica. Le pratiche si legano a un progetto.');
@@ -319,21 +384,22 @@ function vPratiche(el){
   });
 }
 function vClienti(el){
-  const q = h('input',{class:'search',type:'text',placeholder:'cerca per nome, codice fiscale, comune…',value:clientQuery,
+  const q = h('input',{class:'search',type:'search',placeholder:'cerca per nome, codice fiscale, telefono…',value:clientQuery,
     oninput:e=>{clientQuery=e.target.value; drawList();}});
   const box = h('div');
-  el.append(h('div',{class:'toolbar'}, q, h('button',{class:'link',onclick:()=>sheetCliente()},'+ nuovo cliente')), box);
+  el.append(h('div',{class:'toolbar'}, q), box);
   function drawList(){
     box.innerHTML='';
     const s = clientQuery.trim().toLowerCase();
     const cs = clienti().filter(c => !s || [c.nome,c.codice_fiscale,c.email,c.telefono,c.indirizzo].join(' ').toLowerCase().includes(s));
     if(!cs.length) return empty(box, s ? 'Nessun cliente trovato.' : 'Ancora nessun cliente.');
-    cs.forEach(c => {
+    box.append(h('div',{class:'list'}, cs.map(c => {
       const ps = list('progetti').filter(p=>p.cliente_id===c.id);
-      box.append(h('div',{class:'card',onclick:()=>sheetCliente(c)},
-        h('div',{style:'min-width:0'}, h('div',{class:'nm'},c.nome), h('div',{class:'sub'},[c.telefono,c.email,c.codice_fiscale].filter(Boolean).join(' · ')||' ')),
-        h('div',{class:'cnt'}, ps.length ? h('div',null,h('b',null,ps.length), ps.length===1?' progetto':' progetti') : null)));
-    });
+      return h('div',{class:'card',onclick:()=>sheetCliente(c)},
+        h('span',{class:'who lg'}, c.nome.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()),
+        h('div',{style:'min-width:0;flex:1'}, h('div',{class:'nm'},c.nome), h('div',{class:'sub'},[c.telefono,c.email,c.codice_fiscale].filter(Boolean).join(' · ')||' ')),
+        h('div',{class:'cnt'}, ps.length ? h('span',null,h('b',null,ps.length), ps.length===1?' progetto':' progetti') : null));
+    })));
   }
   drawList();
 }
@@ -344,17 +410,16 @@ function vFatte(el){
 }
 function vStudio(el){
   const admin = me.ruolo === 'admin';
-  el.append(h('h2',null,h('span',{class:'t'},'persone dello studio'),
-    admin ? h('span',{class:'acts'},h('button',{onclick:()=>sheetMembro()},'+ aggiungi')) : null));
-  membri().forEach(m => el.append(h('div',{class:'card',onclick:admin?()=>sheetMembro(m):null,style:admin?null:'cursor:default'},
-    h('div',{class:'who'},iniziali(m).toUpperCase()),
-    h('div',{style:'min-width:0'}, h('div',{class:'nm'},nomeMembro(m)), h('div',{class:'sub'},m.email)),
-    h('div',{class:'cnt'}, m.ruolo==='admin'?'amministratore':'membro', m.attivo?'':' · disattivato'))));
-  if(!admin) el.append(h('p',{class:'sub',style:'font-size:13px;color:var(--mute)'},'Solo un amministratore può aggiungere persone.'));
-  el.append(h('h2',null,h('span',{class:'t'},'importa dall’app “cose da fare”')),
-    h('p',{style:'font-size:14px;color:#444;max-width:560px'},
-      'Nell’app su Claude premi “copia backup”, poi incolla qui il testo. Progetti e attività vengono aggiunti a quelli già presenti e assegnati a te.'),
-    h('button',{class:'btn',onclick:sheetImport},'incolla il backup'));
+  el.append(h('section',{class:'grp'}, h('h2',null,h('span',{class:'t'},'persone dello studio'), h('span',{class:'n'},membri().length)),
+    h('div',{class:'list'}, membri().map(m => h('div',{class:'card',onclick:admin?()=>sheetMembro(m):null,style:admin?null:'cursor:default'},
+      h('span',{class:'who lg'},iniziali(m).toUpperCase()),
+      h('div',{style:'min-width:0;flex:1'}, h('div',{class:'nm'},nomeMembro(m)), h('div',{class:'sub'},m.email)),
+      h('div',{class:'cnt'}, h('span',{class:'pill'+(m.ruolo==='admin'?' dark':'')}, m.ruolo==='admin'?'amministratore':'membro'), m.attivo?'':' · disattivato'))))));
+  if(!admin) el.append(h('p',{class:'hint'},'Solo un amministratore può aggiungere persone.'));
+  el.append(h('section',{class:'grp'}, h('h2',null,h('span',{class:'t'},'importa dall’app “cose da fare”')),
+    h('div',{class:'panel'},
+      h('p',null,'Nell’app su Claude premi “copia backup”, poi incolla qui il testo. Progetti e attività vengono aggiunti a quelli già presenti e assegnati a te.'),
+      h('button',{class:'btn',onclick:sheetImport},'incolla il backup'))));
 }
 
 /* ----- righe ----- */
@@ -608,6 +673,7 @@ function sheetImport(){
 /* ---------------- accesso ---------------- */
 function renderLogin(app, mode){
   mode = mode || 'entra';
+  document.body.classList.remove('in');
   const fab = $('.fab'); if(fab) fab.remove();
   const em = txt(lsGet('email')||'','la tua email','email'); em.autocomplete='email';
   const pw = txt('','password','password'); pw.autocomplete = mode==='crea'?'new-password':'current-password';
@@ -644,6 +710,7 @@ function renderNewPassword(){
       recovering=false; toast('password aggiornata'); start(); }}, fld('password',pw), h('div',{class:'btns'},h('button',{class:'btn pri',type:'submit'},'salva'))), msg));
 }
 function renderNonMembro(app){
+  document.body.classList.remove('in');
   const fab = $('.fab'); if(fab) fab.remove();
   app.innerHTML='';
   app.append(h('div',{class:'login'}, h('h1',null,'gestionale'), h('div',{class:'day'},CFG.nomeStudio||''),
