@@ -129,7 +129,8 @@ body[data-view="mappa"] .fab{display:none}
 /* ---------- sezioni ---------- */
 .grp{margin-top:28px}
 .grp h2{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 10px;font-family:var(--title);font-weight:700;font-size:21px;letter-spacing:-.005em}
-.grp h2 .shelf-add{align-self:center;width:24px;height:24px;font-family:var(--sans);font-size:16px;font-weight:400}
+.grp h2 .shelf-add{align-self:center;margin-left:auto;width:30px;height:30px;font-family:var(--sans);font-size:22px;font-weight:300;border-color:transparent;background:transparent;transition:border-color .15s,background .15s,color .15s}
+.grp h2 .shelf-add:hover{border-color:var(--ink);background:var(--ink);color:#fff}
 .grp h2 .n{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--mute)}
 .grp h2 .acts{margin-left:auto;display:flex;gap:8px;font-family:var(--sans);font-size:12px;font-weight:400;color:var(--mute)}
 .grp h2 .acts button{font-size:12px;font-weight:500;color:var(--ink);padding:4px 10px;border:1px solid var(--ink);border-radius:8px}
