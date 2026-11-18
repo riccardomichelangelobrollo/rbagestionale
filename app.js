@@ -1290,8 +1290,11 @@ sb.auth.onAuthStateChange((ev, session) => {
 });
 if(matchMedia('(hover: hover) and (pointer: fine)').matches){
   const cur = h('div',{class:'cur','aria-hidden':'true'}); document.body.append(cur); document.documentElement.classList.add('dot-cursor');
-  addEventListener('mousemove', e => { cur.style.transform = `translate3d(${e.clientX}px,${e.clientY}px,0)`; cur.classList.add('on');
-    cur.classList.toggle('big', !!e.target.closest('a,button,.folder,.mp,.task .tb,.cal-d,.card,.tile,.prat')); });
+  let mx = 0, my = 0, tgt = null, big = false, raf = 0;
+  const frame = () => { raf = 0; cur.style.transform = `translate3d(${mx}px,${my}px,0)`;
+    const b = !!(tgt && tgt.closest && tgt.closest('a,button,.folder,.mp,.task .tb,.cal-d,.card,.tile,.prat'));
+    if(b !== big){ big = b; cur.classList.toggle('big', b); } };
+  addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; tgt = e.target; if(!cur.classList.contains('on')) cur.classList.add('on'); if(!raf) raf = requestAnimationFrame(frame); }, {passive:true});
   document.addEventListener('mouseleave', () => cur.classList.remove('on'));
 }
 let lastDay = today();

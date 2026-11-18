@@ -51,9 +51,11 @@ h1,h2,h3{margin:0}
 
 /* puntatore: il pallino arancio del sito */
 @media (hover:hover) and (pointer:fine){ html.dot-cursor, html.dot-cursor *{cursor:none !important} }
-.cur{position:fixed;left:0;top:0;z-index:1000;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--accent);pointer-events:none;opacity:0;transition:width .2s,height .2s,margin .2s,opacity .2s}
+/* il pallino si muove solo con transform, su un suo livello: niente ricalcoli della pagina */
+.cur{position:fixed;left:0;top:0;z-index:1000;width:26px;height:26px;margin:-13px 0 0 -13px;pointer-events:none;opacity:0;transition:opacity .2s;will-change:transform;contain:strict}
+.cur::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--accent);transform:scale(.54);transition:transform .2s}
 .cur.on{opacity:1}
-.cur.big{width:26px;height:26px;margin:-13px 0 0 -13px}
+.cur.big::after{transform:scale(1)}
 
 /* ---------- impianto ---------- */
 .logo{display:inline-flex;align-items:center;gap:10px;text-decoration:none}
@@ -224,7 +226,7 @@ body[data-view="mappa"] .fab{display:none}
 .folder.dark .fd-l li{color:rgba(255,255,255,.72)}
 .folder.dark:hover{box-shadow:4px 6px 0 var(--accent)}
 /* cartella aperta, sopra la scrivania */
-.desk-ov{position:fixed;inset:0;z-index:30;background:rgba(251,248,245,.6);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);display:flex;justify-content:center;align-items:flex-start;padding:46px var(--pad) 30px}
+.desk-ov{position:fixed;inset:0;z-index:30;background:rgba(251,248,245,.82);display:flex;justify-content:center;align-items:flex-start;padding:46px var(--pad) 30px}
 .fo-wrap{position:relative;width:100%;max-width:1200px;margin-top:18px}
 .fo-wrap.anim{animation:foOpen .34s cubic-bezier(.2,.8,.25,1.05)}
 @keyframes foOpen{from{transform:translate(calc(var(--ox) - 50vw), calc(var(--oy) - 45vh)) scale(.22);opacity:.15}}
