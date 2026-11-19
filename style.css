@@ -666,3 +666,9 @@ body.ov-open{overflow:hidden}
 /* riga rapida: scelta del progetto */
 .quick-p{flex:none;max-width:210px;border:0;border-left:1px solid var(--line);background:transparent;padding:0 12px;font-size:13px;color:var(--ink2);outline:none;cursor:pointer}
 @media(max-width:899px){ .quick-p{max-width:120px;font-size:12px;padding:0 8px} }
+
+/* mappa: le cose che ho scelto di fare oggi hanno il bordo rosso */
+.mp.oggi{outline:2.5px solid #d7261e;outline-offset:2px}
+.mf-oggi{display:flex;align-items:center;gap:7px;padding:6px 11px 6px 12px;margin-left:4px;border-left:1px solid var(--line);font-size:13px;font-weight:500}
+.mf-oggi i{width:16px;height:10px;border-radius:999px;outline:2px solid #d7261e;outline-offset:1px;background:#ddd8d0}
+@media(max-width:899px){ .mf-oggi{padding:6px 8px} .mf-oggi i{display:none} }

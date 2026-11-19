@@ -684,7 +684,8 @@ function vMappa(el){
   const filt = h('div',{class:'map-filter'},
     ['alta','media','bassa'].map(p => h('button',{class:'mf p-'+p+(mapShow.has(p)?' on':''),'aria-pressed':String(mapShow.has(p)),
       onclick:()=>{ if(mapShow.has(p)){ if(mapShow.size > 1) mapShow.delete(p); } else mapShow.add(p); lsSet('mapshow', JSON.stringify([...mapShow])); render(); }},
-      h('span',{class:'mf-box'}), h('span',{class:'mf-dot'}), cap(p), h('span',{class:'mf-n'}, all.filter(a => prioOf(a) === p).length))));
+      h('span',{class:'mf-box'}), h('span',{class:'mf-dot'}), cap(p), h('span',{class:'mf-n'}, all.filter(a => prioOf(a) === p).length))),
+    h('span',{class:'mf-oggi',title:'Le cose che hai scelto di fare oggi'}, h('i'), 'Oggi', h('span',{class:'mf-n'}, all.filter(a => a.in_oggi && a.in_oggi <= today()).length)));
   const evF = eventiFuturi();
   const groups = progetti().filter(p => p.stato !== 'chiuso').map(p => ({p, its: items.filter(a => a.progetto_id === p.id), evs: evF.filter(e => e.progetto_id === p.id)})).filter(g => g.its.length || g.evs.length);
   const orph = items.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
@@ -842,7 +843,8 @@ function pill(a, x, y){
       h('span',{class:'mp-t'}, a.titolo || '(senza titolo)')); }
   const cat = CATMAP[a.categoria] ? a.categoria : 'stu', pr = prioOf(a);
   const late = a.scadenza && diff(a.scadenza) < 0, wait = isWaiting(a);
-  return h('div',{class:'mp p-'+pr+(late?' late':'')+(wait?' wait':''),'data-id':a.id,style:`left:${x}px;top:${y}px;${catStyle(cat)}`,title:CATMAP[cat].name},
+  const oggi = a.in_oggi && a.in_oggi <= today();
+  return h('div',{class:'mp p-'+pr+(late?' late':'')+(wait?' wait':'')+(oggi?' oggi':''),'data-id':a.id,style:`left:${x}px;top:${y}px;${catStyle(cat)}`,title:CATMAP[cat].name},
     h('span',{class:'mp-t'}, a.titolo || '(senza titolo)'),
     pr !== 'bassa' && (a.scadenza || wait) ? h('span',{class:'mp-m'}, wait ? 'Attende ' + (a.attesa_chi||'altri') : dueTxt(a)) : null);
 }
