@@ -650,3 +650,19 @@ body.ov-open{overflow:hidden}
 .mp.ev .mp-t{font-size:13px;font-weight:600}
 .mapsvg path.p-ev{stroke:#111;stroke-width:1.2;stroke-dasharray:none}
 @media(max-width:899px){ .cal-e{font-size:0;height:6px;padding:0;border-radius:3px;border-width:1px} }
+
+/* scheda ordinata a gruppi: che cosa · per chi · quando · attesa · note */
+.sheet{max-width:640px}
+.f input.big{font-size:21px;font-weight:600;letter-spacing:-.01em;padding:10px 2px;border-bottom-color:var(--ink)}
+.grp-f{margin:26px 0 0;padding-top:14px;border-top:1px solid var(--line)}
+.grp-f > h4{margin:0 0 2px;font-family:var(--title);font-weight:700;font-size:17px}
+.grp-f .f{margin:14px 0}
+.grp-f .f:first-of-type{margin-top:10px}
+.hint-s{margin:-2px 0 4px;font-size:12px;color:var(--mute);line-height:1.35}
+.grp-f .waitbox{margin:10px -12px 0}
+.grp-f > .link{display:inline-block;margin-top:8px}
+.f > label + .hint-s{margin-top:-3px}
+.meta .plan{color:var(--ink);font-weight:500}
+/* riga rapida: scelta del progetto */
+.quick-p{flex:none;max-width:210px;border:0;border-left:1px solid var(--line);background:transparent;padding:0 12px;font-size:13px;color:var(--ink2);outline:none;cursor:pointer}
+@media(max-width:899px){ .quick-p{max-width:120px;font-size:12px;padding:0 8px} }

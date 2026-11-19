@@ -372,15 +372,20 @@ function fabAction(){
   if(route.view === 'studio') return me.ruolo==='admin' ? sheetMembro() : sheetAttivita();
   sheetAttivita(null, route.view==='progetto' ? {progetto_id: route.id} : null);
 }
+let quickProj = '';
 function quickAdd(){
-  const inp = h('input',{type:'text',placeholder: route.view==='oggi' ? 'scrivi una cosa da fare oggi e premi invio' : 'aggiungi un’attività e premi invio',enterkeyhint:'done'});
+  const inProj = route.view === 'progetto';
+  const inp = h('input',{type:'text',placeholder: route.view==='oggi' ? 'scrivi una cosa da fare oggi e premi invio' : 'aggiungi una cosa da fare e premi invio',enterkeyhint:'done'});
+  const ps = progetti().filter(p => p.stato === 'attivo').sort(byOrdP);
+  const pSel = inProj ? null : h('select',{class:'quick-p','aria-label':'progetto',onchange:e=>{ quickProj = e.target.value; }},
+    h('option',{value:''},'nessun progetto'), ps.map(p => h('option',{value:p.id, selected:p.id===quickProj}, p.nome)));
+  const pid = () => inProj ? route.id : (pSel.value || null);
   const f = h('form',{class:'quick',autocomplete:'off',onsubmit:e=>{
     e.preventDefault(); const v = inp.value.trim(); if(!v) return;
-    save('attivita', nuovaAttivita({titolo:v, progetto_id: route.view==='progetto'?route.id:null,
-      in_oggi: route.view==='oggi'?today():null}));
+    save('attivita', nuovaAttivita({titolo:v, progetto_id: pid(), in_oggi: route.view==='oggi'?today():null}));
     inp.value=''; toast(route.view==='oggi'?'aggiunta a oggi':'aggiunta');
-  }}, inp, h('button',{type:'button',onclick:()=>{ const v=inp.value.trim(); inp.value='';
-      sheetAttivita(null,{titolo:v, progetto_id: route.view==='progetto'?route.id:null}); }},'dettagli'));
+  }}, inp, pSel, h('button',{type:'button',onclick:()=>{ const v=inp.value.trim(); inp.value='';
+      sheetAttivita(null,{titolo:v, progetto_id: pid()}); }},'dettagli'));
   return f;
 }
 function nuovaAttivita(p){
@@ -1058,7 +1063,7 @@ function rowAtt(a, o={}){
   if(p && route.view !== 'progetto') meta.append(h('a',{class:'prj',href:'#scrivania/progetto/'+p.id,onclick:e=>e.stopPropagation()},p.nome));
   if(a.ogni_giorno) meta.append(h('span',null,'ogni giorno'));
   else if(a.scadenza && !done){ const n = diff(a.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null},dueTxt(a))); }
-  if(!a.ogni_giorno && !done && a.in_oggi && a.in_oggi<=today() && route.view!=='oggi') meta.append(h('span',null,'in programma oggi'));
+  if(!a.ogni_giorno && !done && a.in_oggi && !(route.view==='oggi' && a.in_oggi<=today())) meta.append(h('span',{class:'plan'}, a.in_oggi<=today() ? 'lo fai oggi' : 'lo fai ' + dueLabel(a.in_oggi)));
   const par = parentOf(a);
   if(par && !done && !o.inScad){ const n = diff(par.scadenza || today());
     meta.append(h('span',{class:'entro'+(n<0?' late':n===0?' today':'')}, 'Entro: ' + par.titolo + (par.scadenza ? ' · ' + dueTxt(par) : ''))); }
@@ -1203,8 +1208,9 @@ function sheetAttivita(a, preset, heading){
   const dueT = h('input',{type:'time',value:d.scadenza_ora||'','aria-label':'ora della scadenza'});
   drawEntro(); prog.addEventListener('change', drawEntro);
   const daily = h('input',{type:'checkbox',checked:!!d.ogni_giorno});
-  const planned = h('input',{type:'checkbox',checked:!!(d.in_oggi && d.in_oggi<=today())});
-  const ora = h('input',{type:'time',value:(d.in_oggi===today() && d.ora_oggi) || '',step:'1800'});
+  // "quando lo faccio" (scelta mia) è diverso dalla scadenza (data limite)
+  const quando = h('input',{type:'date',value: d.in_oggi ? (d.in_oggi < today() ? today() : d.in_oggi) : '','aria-label':'giorno in cui lo faccio'});
+  const ora = h('input',{type:'time',value: d.in_oggi && d.ora_oggi ? d.ora_oggi : '',step:'900','aria-label':'a che ora lo faccio'});
   let prio = prioOf(d);
   const prios = h('div',{class:'seg'});
   const drawPrio = () => { prios.innerHTML=''; PRIO.forEach(p => prios.append(h('button',{type:'button',class:'p-'+p+(p===prio?' on':''),onclick:()=>{prio=p;drawPrio();}},p))); };
@@ -1218,7 +1224,6 @@ function sheetAttivita(a, preset, heading){
   const doSave = () => {
     const v = title.value.trim(); if(!v){ title.focus(); return; }
     lastCat = cat; lsSet('cat',cat);
-    const td = today();
     if(kind === 'scadenza'){
       if(!due.value){ due.focus(); toast('Una scadenza o un appuntamento ha bisogno di una data'); return; }
       save('attivita',{...d, tipo:'scadenza', titolo:v, categoria:cat, progetto_id:prog.value||null, assegnata_a:chi.value||null,
@@ -1228,41 +1233,49 @@ function sheetAttivita(a, preset, heading){
     }
     save('attivita',{...d, tipo:'attivita', titolo:v, categoria:cat, progetto_id:prog.value||null, assegnata_a:chi.value||null,
       scadenza:due.value||null, scadenza_ora: due.value && dueT.value ? dueT.value.slice(0,5) : null, per_scadenza: entro && entro.value || null, ogni_giorno:daily.checked,
-      in_oggi: (planned.checked || ora.value) ? (d.in_oggi && d.in_oggi<=td && !ora.value ? d.in_oggi : td) : null,
-      ora_oggi: (planned.checked || ora.value) && ora.value ? ora.value.slice(0,5) : null, priorita: prio,
+      in_oggi: quando.value || null, ora_oggi: quando.value && ora.value ? ora.value.slice(0,5) : null, priorita: prio,
       attesa_chi:wchi.value.trim(), attesa_cosa:wcosa.value.trim(), note:note.value.trim(), allegati});
-    closeSheet(); if(isNew) toast('aggiunta');
+    closeSheet(); if(isNew) toast(quando.value === today() ? 'aggiunta a oggi' : 'aggiunta');
   };
   title.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); doSave(); } });
+  title.classList.add('big');
   const h3 = h('h3',null, heading || '');
-  const solo = {todo: [], ev: []};
-  const fPrio = h('div',{class:'f'},h('span',{class:'lb'},'priorità'),prios); solo.todo.push(fPrio);
-  const fEntro = fld('per la scadenza…', entroBox); solo.todo.push(fEntro);
-  const fOggi = h('div',{class:'f'}, h('div',{class:'row-oggi'}, h('label',{class:'tog'},planned,'da fare oggi'), h('label',{class:'tog'},'alle ',ora)), h('label',{class:'tog'},daily,'ogni giorno (torna da fare ogni mattina)')); solo.todo.push(fOggi);
-  const fWait = h('div',{class:'f waitbox'}, h('span',{class:'lb'},'prima bisogna aspettare che…'), wchi, dl, h('div',{style:'height:6px'}), wcosa); solo.todo.push(fWait);
-  const dueLab = h('label',null,'');
+  const gruppo = (titolo, ...kids) => h('section',{class:'grp-f'}, h('h4',null,titolo), ...kids);
+  const quick = (inp, extra, items) => h('div',{class:'qd'}, items.map(([l, f]) => h('button',{type:'button',onclick:()=>{ inp.value = f(); if(!inp.value && extra) extra.value = ''; }}, l)));
+  const solo = [];
+  const fPrio = h('div',{class:'f'},h('span',{class:'lb'},'priorità'),prios); solo.push(fPrio);
+  const fPlan = h('div',{class:'f'}, h('label',null,'lo faccio'), h('p',{class:'hint-s'},'Il giorno che scegli per lavorarci: compare in Oggi, ma non è una scadenza.'),
+    h('div',{class:'due-row'}, quando, ora),
+    quick(quando, ora, [['oggi', today], ['domani', () => addDays(today(),1)], ['nessun giorno', () => '']])); solo.push(fPlan);
+  const dueLab = h('label',null,''), dueHint = h('p',{class:'hint-s'},'');
+  const fDue = h('div',{class:'f'}, dueLab, dueHint, h('div',{class:'due-row'}, due, dueT),
+    quick(due, dueT, [['oggi', today], ['domani', () => addDays(today(),1)], ['tra una settimana', () => addDays(today(),7)], ['nessuna', () => '']]));
+  const fEntro = fld('oppure: per l’appuntamento', entroBox); solo.push(fEntro);
+  const fDaily = h('div',{class:'f'}, h('label',{class:'tog'},daily,'ogni giorno (torna da fare ogni mattina)')); solo.push(fDaily);
+  const waitBody = h('div',{class:'waitbox'}, wchi, dl, h('div',{style:'height:6px'}), wcosa);
+  const waitOpen = !!(d.attesa_chi || d.attesa_cosa);
+  const waitBtn = h('button',{type:'button',class:'link'},'+ aspetto qualcun altro');
+  waitBtn.onclick = () => { waitBody.hidden = false; waitBtn.hidden = true; wchi.focus(); };
+  waitBody.hidden = !waitOpen; waitBtn.hidden = waitOpen;
+  const fWait = gruppo('Attesa', waitBtn, waitBody); solo.push(fWait);
   const kinds = h('div',{class:'seg kind'});
   const setKind = k => { kind = k; kinds.innerHTML = '';
     [['attivita','Cosa da fare'],['scadenza','Scadenza o appuntamento']].forEach(([v,l]) => kinds.append(h('button',{type:'button',class:v===kind?'on':null,onclick:()=>setKind(v)}, l)));
-    solo.todo.forEach(x => x.style.display = k === 'scadenza' ? 'none' : '');
-    dueLab.textContent = k === 'scadenza' ? 'Quando' : 'Entro quando';
+    solo.forEach(x => x.style.display = k === 'scadenza' ? 'none' : '');
+    dueLab.textContent = k === 'scadenza' ? 'Data' : 'Scadenza';
+    dueHint.textContent = k === 'scadenza' ? '' : 'Solo se c’è una data limite: oltre quel giorno è in ritardo.';
+    dueHint.hidden = k === 'scadenza';
     title.placeholder = k === 'scadenza' ? 'Che cosa: incontro, sopralluogo, consegna…' : 'Che cosa c’è da fare';
     h3.textContent = heading ? cap(heading) : (k === 'scadenza' ? (isNew ? 'Nuova scadenza o appuntamento' : 'Scadenza o appuntamento') : (isNew ? 'Nuova cosa da fare' : 'Cosa da fare'));
     if(k === 'scadenza'){ due.disabled = false; dueT.disabled = false; } else syncEntro(); };
-  const fDue = h('div',{class:'f'}, dueLab, h('div',{class:'due-row'}, due, dueT), h('div',{class:'qd'},
-      h('button',{type:'button',onclick:()=>due.value=today()},'oggi'),
-      h('button',{type:'button',onclick:()=>due.value=addDays(today(),1)},'domani'),
-      h('button',{type:'button',onclick:()=>due.value=addDays(today(),7)},'tra una settimana'),
-      h('button',{type:'button',onclick:()=>{ due.value=''; dueT.value=''; }},'nessuna')));
   openSheet(h3,
     h('div',{class:'f'}, kinds),
-    h('div',{class:'f'},title),
-    h('div',{class:'f'},h('span',{class:'lb'},'tipo di lavoro'),cats),
-    fPrio,
-    h('div',{class:'row2'}, fld('progetto',prog), fld('chi la segue',chi)),
-    fDue, fEntro, fOggi, fWait,
-    h('div',{class:'f'},note),
-    h('div',{class:'f'}, h('span',{class:'lb'},'immagini'), gal),
+    h('div',{class:'f'}, title),
+    gruppo('Che cosa', h('div',{class:'f'}, h('span',{class:'lb'},'tipo di lavoro'), cats), fPrio),
+    gruppo('Per chi', h('div',{class:'row2'}, fld('progetto',prog), fld('chi la segue',chi))),
+    gruppo('Quando', fPlan, fDue, fEntro, fDaily),
+    fWait,
+    gruppo('Note e immagini', h('div',{class:'f'},note), h('div',{class:'f'}, gal)),
     h('div',{class:'btns'}, h('button',{class:'btn pri',onclick:doSave},'salva'),
       isNew ? null : delBtn(()=>{ (d.allegati||[]).length && sb.storage.from(BUCKET).remove(d.allegati.map(x=>x.path)); remove('attivita',d.id); closeSheet(); toast('eliminata'); })));
   setKind(kind);
