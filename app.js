@@ -676,7 +676,7 @@ addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('.acc-pop')) ret
 /* ----- mappa: piano libero, progetti come nodi, attività come etichette sfumate ----- */
 let mapDragging = false;
 const hashN = s => { let x = 0; for(const c of String(s)) x = (x*31 + c.charCodeAt(0)) | 0; return Math.abs(x); };
-let mapView = null;
+let mapView = null, mapFocus = null;
 let mapShow = (() => { try { const v = JSON.parse(lsGet('mapshow')); if(Array.isArray(v) && v.length) return new Set(v); } catch(e){} return new Set(PRIO); })();
 function vMappa(el){
   const all = att().filter(a => !isDone(a) && !a.ogni_giorno);
@@ -687,13 +687,27 @@ function vMappa(el){
       h('span',{class:'mf-box'}), h('span',{class:'mf-dot'}), cap(p), h('span',{class:'mf-n'}, all.filter(a => prioOf(a) === p).length))),
     h('span',{class:'mf-oggi',title:'Le cose che hai scelto di fare oggi'}, h('i'), 'Oggi', h('span',{class:'mf-n'}, all.filter(a => a.in_oggi && a.in_oggi <= today()).length)));
   const evF = eventiFuturi();
-  const groups = progetti().filter(p => p.stato !== 'chiuso').map(p => ({p, its: items.filter(a => a.progetto_id === p.id), evs: evF.filter(e => e.progetto_id === p.id)})).filter(g => g.its.length || g.evs.length);
+  let groups = progetti().filter(p => p.stato !== 'chiuso').map(p => ({p, its: items.filter(a => a.progetto_id === p.id), evs: evF.filter(e => e.progetto_id === p.id)})).filter(g => g.its.length || g.evs.length);
   const orph = items.filter(a => !a.progetto_id || !get('progetti', a.progetto_id));
   const orphE = evF.filter(e => !e.progetto_id || !get('progetti', e.progetto_id));
   if(orph.length || orphE.length) groups.push({p:null, its:orph, evs:orphE});
   const wrap = h('div',{class:'mapwrap'}, filt);
   el.append(wrap);
   if(!groups.length){ wrap.append(h('div',{class:'empty'},'Nessuna attività con questa priorità.')); return; }
+  // telefono: prima la panoramica dei progetti, poi un progetto alla volta
+  if(innerWidth < 700){
+    const keyOf = g => g.p ? g.p.id : 'none';
+    const ordered = groups.slice().sort((a, b) => (!a.p) - (!b.p) || byOrdP(a.p || {}, b.p || {}));
+    if(mapFocus && !ordered.some(g => keyOf(g) === mapFocus)) mapFocus = null;
+    if(!mapFocus) return panoramicaMappa(wrap, ordered, keyOf);
+    const i = ordered.findIndex(g => keyOf(g) === mapFocus), g0 = ordered[i];
+    const vai = j => { mapFocus = keyOf(ordered[(j + ordered.length) % ordered.length]); mapView = null; render(); };
+    el.insertBefore(h('div',{class:'mo-head'},
+      h('button',{class:'mo-back',onclick:()=>{ mapFocus = null; mapView = null; render(); }}, '← tutti'),
+      h('b',null, g0.p ? g0.p.nome : 'Generali'),
+      ordered.length > 1 ? h('span',{class:'mo-nav'}, h('button',{onclick:()=>vai(i-1),'aria-label':'Progetto precedente'},'‹'), h('span',null,(i+1)+'/'+ordered.length), h('button',{onclick:()=>vai(i+1),'aria-label':'Progetto successivo'},'›')) : null), wrap);
+    groups = [g0]; wrap.classList.add('solo');
+  }
   const W = Math.max(300, innerWidth - (innerWidth >= 900 ? 82 : 2)), Hv = Math.max(380, innerHeight - (innerWidth >= 900 ? 100 : 96));
   const small = W < 700, K = 1, ASP = Math.sqrt(Math.max(1, W / Hv));
   const SZ = {alta:{fs:19,mw:230,px:20,py:11}, media:{fs:14,mw:190,px:14,py:7}, bassa:{fs:12,mw:160,px:10,py:4}};
@@ -803,7 +817,7 @@ function vMappa(el){
   const key = [...mapShow].join() + '|' + groups.map(g => (g.p ? g.p.id : '-') + g.its.length).join();
   const fit = (minZ = .2) => { const z = Math.max(minZ, Math.min(1, (Wv - 40) / CW, small ? 9 : (HvH - 90) / CH));
     return {key, z, tx: (Wv - CW * z) / 2, ty: small || CH * z > HvH - 90 ? Math.min(70, (HvH - CH * z) / 2 + 20) : (HvH - CH * z) / 2 + 20}; };
-  if(!mapView || mapView.key !== key) mapView = fit(small ? .2 : .68);
+  if(!mapView || mapView.key !== key) mapView = fit(innerWidth < 700 ? .85 : .68);
   const V = mapView, apply = () => { cv.style.transform = `translate(${V.tx}px,${V.ty}px) scale(${V.z})`;
     cv.style.setProperty('--hs', Math.max(1, .9 / V.z).toFixed(3)); /* più ci si allontana, più crescono i nomi dei progetti (solo quelli) */
     cv.classList.toggle('far', V.z < .55); };
@@ -836,6 +850,23 @@ function vMappa(el){
     h('button',{class:'fit',onclick:()=>{ Object.assign(V, fit()); apply(); },title:'Vedi tutta la mappa'},'Tutto')));
 }
 
+function panoramicaMappa(wrap, groups, keyOf){
+  wrap.classList.add('mo');
+  const actives = progetti().filter(p => p.stato === 'attivo'), W = {alta:3, media:2, bassa:1};
+  wrap.append(h('div',{class:'mo-grid'}, groups.map(g => {
+    const peso = g.its.reduce((t, a) => t + W[prioOf(a)], 0), i = g.p ? actives.indexOf(g.p) : -1;
+    const col = i >= 0 ? FOLDER_COLORS[i % FOLDER_COLORS.length] : '#cfcac3';
+    const oggiN = g.its.filter(a => a.in_oggi && a.in_oggi <= today()).length, lateN = g.its.filter(a => effDue(a) && diff(effDue(a)) < 0).length;
+    const prox = g.evs.slice().sort(sortA)[0];
+    const D = Math.round(Math.min(178, 112 + Math.sqrt(peso) * 14));
+    return h('button',{class:'mo-c',style:`--g:${col};width:${D}px;height:${D}px`,onclick:()=>{ mapFocus = keyOf(g); mapView = null; render(); }},
+      h('span',{class:'mo-n'}, g.p ? g.p.nome : 'Generali'),
+      h('span',{class:'mo-dots'}, g.its.slice().sort((a, b) => W[prioOf(b)] - W[prioOf(a)]).slice(0, 18).map(a =>
+        h('i',{class:'p-' + prioOf(a) + (a.in_oggi && a.in_oggi <= today() ? ' oggi' : ''),style:catStyle(CATMAP[a.categoria] ? a.categoria : 'stu')}))),
+      h('span',{class:'mo-s'}, g.its.length + ' da fare', oggiN ? h('b',{class:'r'}, ' · ' + oggiN + ' oggi') : null, lateN ? h('b',{class:'o'}, ' · ' + lateN + ' in ritardo') : null),
+      prox ? h('span',{class:'mo-e'}, dueLabel(prox.scadenza) + (prox.scadenza_ora ? ' ' + prox.scadenza_ora : '') + ' · ' + prox.titolo) : null);
+  })), h('p',{class:'mo-hint'},'Tocca un progetto per aprire la sua mappa.'));
+}
 function pill(a, x, y){
   if(isEv(a)){ const d = parse(a.scadenza);
     return h('div',{class:'mp ev','data-id':a.id,style:`left:${x}px;top:${y}px;${catStyle(CATMAP[a.categoria]?a.categoria:'stu')}`,title:'Scadenza o appuntamento'},
