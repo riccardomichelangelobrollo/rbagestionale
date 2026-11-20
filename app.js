@@ -34,6 +34,9 @@ const parse = s => { const [a,b,c] = String(s).slice(0,10).split('-').map(Number
 const addDays = (s,n) => { const d = parse(s); d.setDate(d.getDate()+n); return ds(d); };
 const diff = s => Math.round((parse(s) - parse(today())) / 864e5);
 const fmtDate = s => parse(s).toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'});
+/* orari a passi di 5 minuti */
+const r5 = v => { if(!v) return null; let [H, M] = v.slice(0,5).split(':').map(Number); M = Math.round(M / 5) * 5; if(M === 60){ H = (H + 1) % 24; M = 0; } return pad(H) + ':' + pad(M); };
+const slotOf = t => pad(+t.slice(0,2)) + ':' + (+t.slice(3,5) < 30 ? '00' : '30');
 const dueTxt = o => dueLabel(o.scadenza) + (o.scadenza_ora ? ' alle ' + o.scadenza_ora : '');
 function dueLabel(s){
   const n = diff(s);
@@ -322,7 +325,7 @@ addEventListener('pointermove', e => {
       // la timeline scorre da sola quando ci si avvicina ai suoi bordi
       const tl = document.querySelector('.timeline');
       if(tl){ const r = tl.getBoundingClientRect();
-        if(x >= r.left && x <= r.right){ if(y < r.top + 50 && y > r.top - 40) tl.scrollTop -= 12; else if(y > r.bottom - 50 && y < r.bottom + 40) tl.scrollTop += 12; } }
+        if(x >= r.left && x <= r.right){ if(y < r.top + 22 && y > r.top - 40) tl.scrollTop -= 10; else if(y > r.bottom - 22 && y < r.bottom + 40) tl.scrollTop += 10; } }
       const fo = document.querySelector('.fo');
       if(fo){ const r = fo.getBoundingClientRect(); if(y < r.top + 60) fo.scrollTop -= 14; else if(y > r.bottom - 60) fo.scrollTop += 14; }
       else if(y < 80) scrollBy(0, -14); else if(y > innerHeight - 80) scrollBy(0, 14); }, 16);
@@ -335,7 +338,7 @@ addEventListener('pointermove', e => {
   if(!z) return;
   z.classList.add('over');
   if(z.dataset.sort !== undefined){
-    const kids = [...z.querySelectorAll(':scope > .dr:not(.dragging)')];
+    const kids = [...z.querySelectorAll('.dr:not(.dragging)')];
     let i = kids.findIndex(k => { const r = k.getBoundingClientRect(); return e.clientY < r.top + r.height/2; });
     if(i < 0) i = kids.length;
     drag.idx = i; drag.kids = kids;
@@ -357,8 +360,11 @@ addEventListener('click', e => { if(justDragged){ e.stopPropagation(); e.prevent
 function onDrop(a, where, idx, order){
   const td = today();
   if(where.startsWith('slot:')){
-    save('attivita', {...a, in_oggi: td, ora_oggi: where.slice(5)});
-    toast('alle '+where.slice(5));
+    const t = where.slice(5), resta = a.in_oggi === td && a.ora_oggi && slotOf(a.ora_oggi) === t, ora = resta ? a.ora_oggi : t;
+    const ids = order.filter(id => id !== a.id); ids.splice(idx, 0, a.id);
+    ids.forEach((id, i) => { const x = id === a.id ? {...a, in_oggi: td, ora_oggi: ora} : get('attivita', id);
+      if(x && (x.ordine !== (i+1) * 10 || id === a.id)) save('attivita', {...x, ordine: (i+1) * 10}); });
+    if(!resta) toast('alle ' + ora);
   } else if(where === 'inbox'){
     const ids = order.filter(id => id !== a.id); ids.splice(idx, 0, a.id);
     ids.forEach((id, i) => {
@@ -435,7 +441,6 @@ function vOggi(el){
   const doneToday = att().filter(a=>!a.ogni_giorno && a.fatta && a.fatta_il && ds(new Date(a.fatta_il))===td && !(a.in_oggi===td && a.ora_oggi));
   const late = inbox.filter(a=>a.scadenza && diff(a.scadenza)<0).length + prat.filter(x=>diff(x.scadenza)<0).length;
   const evOggi = eventi().filter(e => e.scadenza === td).sort(sortA);
-  const slotOf = t => pad(+t.slice(0,2)) + ':' + (+t.slice(3,5) < 30 ? '00' : '30');
 
 
   const left = h('div',{class:'day-l'});
@@ -454,15 +459,16 @@ function vOggi(el){
 
   const now = new Date(), nowSlot = pad(now.getHours())+':'+(now.getMinutes()<30?'00':'30');
   const tl = h('div',{class:'timeline'});
-  const extra = timed.filter(a => !ORE.includes(a.ora_oggi));
+  const fuori = t => slotOf(t) < ORE[0] ? ORE[0] : slotOf(t) > ORE[ORE.length-1] ? ORE[ORE.length-1] : slotOf(t);
+  const nelSlot = (a, t) => fuori(a.ora_oggi) === t;
   ORE.forEach(t => {
-    const its = timed.filter(a => a.ora_oggi === t || (t === ORE[0] && extra.includes(a)));
+    const its = timed.filter(a => nelSlot(a, t)).sort((x, y) => ((x.ordine ?? 1e9) - (y.ordine ?? 1e9)) || cmpIt(x.ora_oggi, y.ora_oggi) || sortA(x, y));
     const evs = evOggi.filter(e => e.scadenza_ora && (slotOf(e.scadenza_ora) === t || (t === ORE[0] && !ORE.includes(slotOf(e.scadenza_ora)))));
-    tl.append(h('div',{class:'slot'+(t.endsWith(':00')?' hr':'')+(t===nowSlot?' now':''),'data-drop':'slot:'+t},
+    tl.append(h('div',{class:'slot'+(t.endsWith(':00')?' hr':'')+(t===nowSlot?' now':''),'data-drop':'slot:'+t,'data-sort':''},
       h('div',{class:'slot-t mono'}, t.endsWith(':00') ? t : ''),
       h('div',{class:'slot-b'}, evs.map(e => h('div',{class:'tl-ev',style:catStyle(CATMAP[e.categoria]?e.categoria:'stu'),onclick:()=>sheetAttivita(e)},
           h('b',null, e.scadenza_ora), h('span',null, e.titolo), get('progetti',e.progetto_id) ? h('em',null, get('progetti',e.progetto_id).nome) : null)),
-        its.sort(sortA).map(a => rowAtt(a, {drag:true, compact:true})))));
+        its.map(a => rowAtt(a, {drag:true, compact:true, ora:true})))));
   });
   const right = h('div',{class:'day-r'}, h('section',{class:'grp'},
     h('h2',null, h('span',{class:'t'},'timeline'), h('span',{class:'n mono'}, String(timed.length)),
@@ -1110,6 +1116,7 @@ function rowAtt(a, o={}){
   const par = parentOf(a);
   if(par && !done && !o.inScad){ const n = diff(par.scadenza || today());
     meta.append(h('span',{class:'entro'+(n<0?' late':n===0?' today':'')}, 'Entro: ' + par.titolo + (par.scadenza ? ' · ' + dueTxt(par) : ''))); }
+  if(o.ora && a.ora_oggi && a.ora_oggi !== slotOf(a.ora_oggi)) meta.prepend(h('span',{class:'ora'}, a.ora_oggi));
   if(a.note) meta.append(h('span',null,'· nota'));
   if((a.allegati||[]).length) meta.append(h('span',{class:'att-n',title:'Immagini allegate'}, ICON_IMG(), a.allegati.length));
   const body = h('div',{class:'tb',onclick:()=>sheetAttivita(a)}, h('div',{class:'tt'},a.titolo||'(senza titolo)'), meta);
@@ -1248,12 +1255,12 @@ function sheetAttivita(a, preset, heading){
   const syncEntro = () => { const on = !!(entro && entro.value); [due, dueT].forEach(i => { if(i){ i.disabled = on; if(on) i.value = ''; } }); };
   const chi = selectOf(membri().filter(m=>m.attivo||m.id===d.assegnata_a).map(m=>({value:m.id,label:nomeMembro(m)+(m.id===me.id?' (tu)':'')})), d.assegnata_a, '— chiunque —');
   const due = h('input',{type:'date',value:d.scadenza||''});
-  const dueT = h('input',{type:'time',value:d.scadenza_ora||'','aria-label':'ora della scadenza'});
+  const dueT = h('input',{type:'time',value:d.scadenza_ora||'',step:'300','aria-label':'ora della scadenza'});
   drawEntro(); prog.addEventListener('change', drawEntro);
   const daily = h('input',{type:'checkbox',checked:!!d.ogni_giorno});
   // "quando lo faccio" (scelta mia) è diverso dalla scadenza (data limite)
   const quando = h('input',{type:'date',value: d.in_oggi ? (d.in_oggi < today() ? today() : d.in_oggi) : '','aria-label':'giorno in cui lo faccio'});
-  const ora = h('input',{type:'time',value: d.in_oggi && d.ora_oggi ? d.ora_oggi : '',step:'900','aria-label':'a che ora lo faccio'});
+  const ora = h('input',{type:'time',value: d.in_oggi && d.ora_oggi ? d.ora_oggi : '',step:'300','aria-label':'a che ora lo faccio'});
   let prio = prioOf(d);
   const prios = h('div',{class:'seg'});
   const drawPrio = () => { prios.innerHTML=''; PRIO.forEach(p => prios.append(h('button',{type:'button',class:'p-'+p+(p===prio?' on':''),onclick:()=>{prio=p;drawPrio();}},p))); };
@@ -1270,13 +1277,13 @@ function sheetAttivita(a, preset, heading){
     if(kind === 'scadenza'){
       if(!due.value){ due.focus(); toast('Una scadenza o un appuntamento ha bisogno di una data'); return; }
       save('attivita',{...d, tipo:'scadenza', titolo:v, categoria:cat, progetto_id:prog.value||null, assegnata_a:chi.value||null,
-        scadenza:due.value, scadenza_ora: dueT.value ? dueT.value.slice(0,5) : null, per_scadenza:null, ogni_giorno:false, in_oggi:null, ora_oggi:null,
+        scadenza:due.value, scadenza_ora: dueT.value ? r5(dueT.value) : null, per_scadenza:null, ogni_giorno:false, in_oggi:null, ora_oggi:null,
         fatta:false, fatta_il:null, attesa_chi:'', attesa_cosa:'', note:note.value.trim(), allegati});
       closeSheet(); if(isNew) toast('scadenza aggiunta'); return;
     }
     save('attivita',{...d, tipo:'attivita', titolo:v, categoria:cat, progetto_id:prog.value||null, assegnata_a:chi.value||null,
-      scadenza:due.value||null, scadenza_ora: due.value && dueT.value ? dueT.value.slice(0,5) : null, per_scadenza: entro && entro.value || null, ogni_giorno:daily.checked,
-      in_oggi: quando.value || null, ora_oggi: quando.value && ora.value ? ora.value.slice(0,5) : null, priorita: prio,
+      scadenza:due.value||null, scadenza_ora: due.value && dueT.value ? r5(dueT.value) : null, per_scadenza: entro && entro.value || null, ogni_giorno:daily.checked,
+      in_oggi: quando.value || null, ora_oggi: quando.value && ora.value ? r5(ora.value) : null, priorita: prio,
       attesa_chi:wchi.value.trim(), attesa_cosa:wcosa.value.trim(), note:note.value.trim(), allegati});
     closeSheet(); if(isNew) toast(quando.value === today() ? 'aggiunta a oggi' : 'aggiunta');
   };
@@ -1375,7 +1382,7 @@ function sheetPratica(p, preset){
   const prot = txt(d.protocollo,'numero di protocollo');
   const dep = h('input',{type:'date',value:d.data_deposito||''});
   const due = h('input',{type:'date',value:d.scadenza||''});
-  const dueT = h('input',{type:'time',value:d.scadenza_ora||'','aria-label':'ora della scadenza'});
+  const dueT = h('input',{type:'time',value:d.scadenza_ora||'',step:'300','aria-label':'ora della scadenza'});
   const stato = selectOf(STATI_PRATICA.map(s=>({value:s,label:s})), d.stato);
   const note = h('textarea',{placeholder:'note (integrazioni richieste, riferimenti del tecnico comunale…)'}); note.value = d.note||'';
   const doSave = () => {
@@ -1383,7 +1390,7 @@ function sheetPratica(p, preset){
     let st = stato.value;
     if(st==='in preparazione' && dep.value && !d.data_deposito) st = 'depositata';
     save('pratiche',{...d, progetto_id:prog.value, tipo:t, comune:comune.value.trim(), protocollo:prot.value.trim(),
-      data_deposito:dep.value||null, scadenza:due.value||null, scadenza_ora: due.value && dueT.value ? dueT.value.slice(0,5) : null, stato:st, note:note.value.trim()});
+      data_deposito:dep.value||null, scadenza:due.value||null, scadenza_ora: due.value && dueT.value ? r5(dueT.value) : null, stato:st, note:note.value.trim()});
     closeSheet(); if(isNew) toast('pratica aggiunta');
   };
   openSheet(h('h3',null,isNew?'nuova pratica':'pratica'),
