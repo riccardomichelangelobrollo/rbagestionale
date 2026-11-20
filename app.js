@@ -164,7 +164,7 @@ function readHash(){
   else if(v === 'progetto' && id) route = {view:'progetto', id};
   else route = VIEWS.some(x=>x[0]===v) ? {view:v, id:null} : {view:'scrivania', id:null, desk:true};
 }
-addEventListener('hashchange', () => { const wasDesk = route.desk; readHash(); if(!(wasDesk && route.desk)) renderKeepScroll = false; ovScroll = 0; render(); renderKeepScroll = true; if(!route.desk || !wasDesk) scrollTo(0,0); });
+addEventListener('hashchange', () => { const wasDesk = route.desk; tlScroll = null; readHash(); if(!(wasDesk && route.desk)) renderKeepScroll = false; ovScroll = 0; render(); renderKeepScroll = true; if(!route.desk || !wasDesk) scrollTo(0,0); });
 
 /* ---------------- render ---------------- */
 const LABEL = Object.fromEntries(VIEWS);
@@ -226,6 +226,7 @@ function render(){
   const active = route.desk ? 'scrivania' : route.view==='progetto' ? 'progetti' : route.view;
   const pageView = route.desk ? 'scrivania' : route.view;
   const prevOv = $('.fo'); if(prevOv) ovScroll = prevOv.scrollTop;
+  const prevTl = $('.timeline'); if(prevTl) tlScroll = prevTl.scrollTop;
   let n = 0;
   // menu: una riga in basso (computer); logo e "Menu" in basso (telefono), che apre le voci come sul sito
   const VOCI = [['mappa','Mappa'],['progetti','Progetti'],['pratiche','Pratiche'],['clienti','Clienti']];
@@ -317,11 +318,17 @@ addEventListener('pointermove', e => {
     drag.dx = drag.x0 - r.left; drag.dy = drag.y0 - r.top;
     drag.ghost = drag.el.cloneNode(true); drag.ghost.classList.add('ghost'); drag.ghost.style.width = r.width+'px';
     document.body.append(drag.ghost); drag.el.classList.add('dragging'); document.body.classList.add('is-dragging');
-    drag.timer = setInterval(() => { if(!drag) return; const y = drag.y;
-      if(y < 80) scrollBy(0, -14); else if(y > innerHeight - 80) scrollBy(0, 14); }, 16);
+    drag.timer = setInterval(() => { if(!drag) return; const y = drag.y, x = drag.x;
+      // la timeline scorre da sola quando ci si avvicina ai suoi bordi
+      const tl = document.querySelector('.timeline');
+      if(tl){ const r = tl.getBoundingClientRect();
+        if(x >= r.left && x <= r.right){ if(y < r.top + 50 && y > r.top - 40) tl.scrollTop -= 12; else if(y > r.bottom - 50 && y < r.bottom + 40) tl.scrollTop += 12; } }
+      const fo = document.querySelector('.fo');
+      if(fo){ const r = fo.getBoundingClientRect(); if(y < r.top + 60) fo.scrollTop -= 14; else if(y > r.bottom - 60) fo.scrollTop += 14; }
+      else if(y < 80) scrollBy(0, -14); else if(y > innerHeight - 80) scrollBy(0, 14); }, 16);
   }
   e.preventDefault();
-  drag.y = e.clientY;
+  drag.y = e.clientY; drag.x = e.clientX;
   drag.ghost.style.transform = `translate(${e.clientX-drag.dx}px,${e.clientY-drag.dy}px) rotate(-1.5deg)`;
   document.querySelectorAll('.over,.ins').forEach(x=>x.classList.remove('over','ins'));
   const z = dragZoneAt(e.clientX, e.clientY); drag.zone = z;
@@ -461,6 +468,9 @@ function vOggi(el){
     h('h2',null, h('span',{class:'t'},'timeline'), h('span',{class:'n mono'}, String(timed.length)),
       h('span',{class:'acts mono'}, now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}))), tl));
   el.append(h('div',{class:'day'}, left, right));
+  // la timeline resta dov'era; la prima volta si apre sull'ora attuale
+  requestAnimationFrame(() => { if(tlScroll != null) tl.scrollTop = tlScroll;
+    else { const n = tl.querySelector('.slot.now'); if(n) tl.scrollTop = Math.max(0, n.offsetTop - 60); } });
 }
 
 /* ----- scrivania: la home, fatta di cartelle ----- */
@@ -571,7 +581,7 @@ function deskFolderInfo(){
     pratiche:{title:'Pratiche edilizie', color:'#DCEDF2', sub:'Pratiche'}, generali:{title:'Studio e generali', color:'#ffffff', sub:'Senza progetto'},
     fatte:{title:'Completate', color:'#f3f1ec', sub:'Storico'}})[route.view] || {title:LABEL[route.view]||'', color:'#fff', sub:''};
 }
-let ovScroll = 0;
+let ovScroll = 0, tlScroll = null;
 let showInfo = false;
 function closeDesk(){ showInfo = false; location.hash = '#scrivania'; }
 function deskOverlay(){

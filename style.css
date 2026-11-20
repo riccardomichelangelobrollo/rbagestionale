@@ -698,3 +698,12 @@ body.ov-open{overflow:hidden}
 .mo-nav button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);font-size:18px;background:var(--surface)}
 .mapwrap.solo .hub-l{display:none}
 @media(max-width:899px){ .bb-acc{display:none} }
+
+/* oggi: la timeline scorre per conto suo, "da sistemare" resta a portata di mano */
+.timeline{position:relative}
+@media(min-width:1101px){
+  .day-r{position:sticky;top:0;align-self:start}
+  .fo-body .day-r{top:82px}
+  .timeline{max-height:calc(100vh - var(--bb) - 200px);overflow:auto;overscroll-behavior:contain;border-bottom:1px solid var(--line)}
+  .fo .timeline{max-height:calc(100vh - var(--bb) - 270px)}
+}
