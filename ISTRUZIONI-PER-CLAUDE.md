@@ -143,3 +143,7 @@ Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiorna
 ### Timeline di domani
 - Interruttore `.seg.tl-day` (Oggi | Domani) nell'intestazione della timeline; stato `tlDomani` (torna a oggi quando si cambia pagina).
 - Con Domani: la timeline mostra le cose con `in_oggi` = domani e un orario, più gli appuntamenti di domani con orario; trascinare su una fascia mette `in_oggi` = domani (`onDrop` slot usa il giorno della timeline). Ciò che è sulla timeline di domani non si ripete nella lista "Domani" a sinistra.
+
+### Cartelle: "Già assegnate"
+- In `cartellaLavoro` (progetti e Generali), prima di "Scadenze": le cose aperte con `in_oggi` ≤ domani (oggi, domani o rimaste da giorni passati), ordinate per giorno, ora, ordine. Escono da "Da fare" per non ripetersi.
+- In `rowAtt` la scritta "lo fai oggi/domani" aggiunge l'orario ("alle 09:00") se c'è.

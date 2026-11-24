@@ -1065,10 +1065,14 @@ function cartellaLavoro(el, pid){
   const td = today();
   const ev = eventi().filter(mio), prat = pid ? list('pratiche').filter(x => x.progetto_id === pid && x.stato !== 'conclusa' && x.scadenza) : [];
   const sc = ev.filter(e => e.scadenza >= td).concat(prat.map(asP)).sort(sortA);
+  // già assegnate: quelle che ti sei messo in programma per oggi o domani stanno in cima
+  const tm = addDays(td, 1), aperte = att().filter(x => !x.ogni_giorno && mio(x) && !isDone(x) && !isWaiting(x));
+  const gia = x => x.in_oggi && x.in_oggi <= tm;
+  section(el,'già assegnate',aperte.filter(gia).sort((x,y) => cmpIt(x.in_oggi <= td ? td : x.in_oggi, y.in_oggi <= td ? td : y.in_oggi) || cmpIt(x.ora_oggi||'99:99', y.ora_oggi||'99:99') || byOrdine(x,y)));
   section(el,'scadenze',sc,{keep:true,emptyText:'Nessuna scadenza o appuntamento.',row:rowScad,late:prat.some(x=>diff(x.scadenza)<0),
     add:{title:'Nuova scadenza o appuntamento', fn:()=>sheetAttivita(null,{progetto_id:pid||null, tipo:'scadenza', scadenza:addDays(td,7)})}});
   const a = att().filter(x => !x.ogni_giorno && mio(x));
-  section(el,'da fare',a.filter(x => !isDone(x) && !isWaiting(x)).sort(ordineDaFare),{keep:true,emptyText:'Niente da fare.',
+  section(el,'da fare',aperte.filter(x => !gia(x)).sort(ordineDaFare),{keep:true,emptyText:'Niente da fare.',
     add:{title:'Nuova cosa da fare', fn:()=>sheetAttivita(null,{progetto_id:pid||null})}});
   section(el,'in attesa di altri',a.filter(isWaiting).sort(ordineDaFare));
   const passate = ev.filter(e => e.scadenza < td).sort((x,y) => cmpIt(y.scadenza, x.scadenza)).slice(0, 10);
@@ -1141,7 +1145,7 @@ function rowAtt(a, o={}){
   if(p && route.view !== 'progetto') meta.append(h('a',{class:'prj',href:'#scrivania/progetto/'+p.id,onclick:e=>e.stopPropagation()},p.nome));
   if(a.ogni_giorno) meta.append(h('span',null,'ogni giorno'));
   else if(a.scadenza && !done){ const n = diff(a.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null}, o.domani && n === 1 ? 'scadenza' + (a.scadenza_ora ? ' alle ' + a.scadenza_ora : '') : dueTxt(a))); }
-  if(!a.ogni_giorno && !done && a.in_oggi && !o.domani && !(route.view==='oggi' && a.in_oggi<=today())) meta.append(h('span',{class:'plan'}, a.in_oggi<=today() ? 'lo fai oggi' : 'lo fai ' + dueLabel(a.in_oggi)));
+  if(!a.ogni_giorno && !done && a.in_oggi && !o.domani && !(route.view==='oggi' && a.in_oggi<=today())) meta.append(h('span',{class:'plan'}, (a.in_oggi<=today() ? 'lo fai oggi' : 'lo fai ' + dueLabel(a.in_oggi)) + (a.ora_oggi && a.in_oggi >= today() ? ' alle ' + a.ora_oggi : '')));
   const par = parentOf(a);
   if(par && !done && !o.inScad){ const n = diff(par.scadenza || today());
     meta.append(h('span',{class:'entro'+(n<0?' late':n===0?' today':'')}, 'Entro: ' + par.titolo + (par.scadenza ? ' · ' + dueTxt(par) : ''))); }
