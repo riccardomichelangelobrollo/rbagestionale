@@ -133,3 +133,9 @@ Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiorna
 - **Mappa sul telefono** (larghezza < 700px): prima una panoramica (`panoramicaMappa`) con un cerchio per progetto — grandezza secondo il lavoro pesato per priorità, pallini delle cose da fare (bordo rosso = oggi), conteggi e prossimo appuntamento; toccandolo si apre la mappa di quel solo progetto (`mapFocus`), leggibile (zoom iniziale 0,85), con "← tutti" e frecce per il progetto precedente/successivo. Sul computer resta la mappa intera.
 - Oggi: sul computer la timeline scorre per conto suo (colonna `sticky`, altezza dello schermo), all'apertura si posiziona sull'ora attuale e dopo ogni modifica resta dov'era (`tlScroll`); trascinando vicino ai suoi bordi scorre da sola.
 - Orari a passi di 5 minuti (`step=300`, arrotondamento `r5` al salvataggio). Timeline: ogni attività sta nella sua mezz'ora (`slotOf`), anche con orari come 9:15 (mostrati accanto al titolo); dentro la stessa mezz'ora si riordina trascinando (campo `ordine`), e spostandola nella stessa fascia mantiene il suo minuto.
+
+### Oggi → sezione "Domani"
+- In `vOggi`, sotto "Da sistemare": appuntamenti di domani (`rowScad`) e una lista trascinabile (`data-drop="domani"`) con le cose da fare con `in_oggi` = domani o scadenza (anche ereditata) = domani, non già in oggi né in attesa.
+- `onDrop('domani')`: mette `in_oggi` = domani, toglie l'orario (lo tiene se era già di domani), riordina con `ordine`. Se scade oggi o prima non si rimanda (toast).
+- Da "Domani" verso "Da sistemare" o la timeline: la logica esistente la riporta a oggi.
+- `rowAtt(a,{domani:true})`: niente "lo fai domani" (ridondante), mostra "alle HH:MM" se pianificata con orario e "Scadenza" al posto di "Domani".

@@ -371,6 +371,14 @@ function onDrop(a, where, idx, order){
       const x = id === a.id ? {...a, ora_oggi:null, in_oggi: a.in_oggi && a.in_oggi <= td ? a.in_oggi : td} : get('attivita', id);
       if(x && (x.ordine !== (i+1)*10 || id === a.id)) save('attivita', {...x, ordine:(i+1)*10});
     });
+  } else if(where === 'domani'){
+    const tm = addDays(td, 1), due = effDue(a);
+    if(due && due <= td){ toast('scade oggi: cambia la scadenza dalla scheda'); return; }
+    const ids = order.filter(id => id !== a.id); ids.splice(idx, 0, a.id);
+    const era = a.in_oggi === tm;
+    ids.forEach((id, i) => { const x = id === a.id ? {...a, in_oggi: tm, ora_oggi: era ? a.ora_oggi : null} : get('attivita', id);
+      if(x && (x.ordine !== (i+1)*10 || id === a.id)) save('attivita', {...x, ordine:(i+1)*10}); });
+    if(!era) toast('rimandata a domani');
   } else if(where.startsWith('prj:')){
     const pid = where.slice(4) || null;
     if((a.progetto_id||null) !== pid){ save('attivita', {...a, progetto_id: pid}); toast(pid ? 'spostata in '+get('progetti',pid).nome : 'tolta dal progetto'); }
@@ -452,6 +460,19 @@ function vOggi(el){
   if(!inbox.length) ibList.append(h('div',{class:'empty sm'},'Scrivi qui sopra le cose da fare oggi, come ti vengono in mente. Poi trascinale sull’orario.'));
   inbox.forEach(a => ibList.append(rowAtt(a, {drag:true})));
   ib.append(ibList); left.append(ib);
+  // domani: le cose segnate per domani; si trascinano qui per rimandarle, o da qui su oggi
+  const tm = addDays(td, 1);
+  const evDom = eventi().filter(e => e.scadenza === tm).sort(sortA);
+  const dom = att().filter(a => !a.ogni_giorno && !a.fatta && !inToday(a) && !isWaiting(a) && (a.in_oggi === tm || effDue(a) === tm))
+    .sort((x, y) => ((x.ordine ?? 1e9) - (y.ordine ?? 1e9)) || cmpIt(x.ora_oggi, y.ora_oggi) || sortA(x, y));
+  const dm = h('section',{class:'grp dom'},
+    h('h2',null, h('span',{class:'t'},'domani'), dom.length ? h('span',{class:'n mono'}, String(dom.length)) : null,
+      h('span',{class:'acts mono'},'trascina qui per rimandare')));
+  if(evDom.length) dm.append(h('div',{class:'list'}, evDom.map(rowScad)));
+  const dmList = h('div',{class:'list drop','data-drop':'domani','data-sort':''});
+  if(!dom.length) dmList.append(h('div',{class:'empty sm'},'Niente per domani.'));
+  dom.forEach(a => dmList.append(rowAtt(a, {drag:true, domani:true})));
+  dm.append(dmList); left.append(dm);
   section(left,'pratiche in scadenza',prat,{late:prat.some(x=>diff(x.scadenza)<0)});
   section(left,'ogni giorno',daily);
   section(left,'in attesa di altri',wait);
@@ -1111,11 +1132,12 @@ function rowAtt(a, o={}){
   const p = get('progetti',a.progetto_id);
   if(p && route.view !== 'progetto') meta.append(h('a',{class:'prj',href:'#scrivania/progetto/'+p.id,onclick:e=>e.stopPropagation()},p.nome));
   if(a.ogni_giorno) meta.append(h('span',null,'ogni giorno'));
-  else if(a.scadenza && !done){ const n = diff(a.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null},dueTxt(a))); }
-  if(!a.ogni_giorno && !done && a.in_oggi && !(route.view==='oggi' && a.in_oggi<=today())) meta.append(h('span',{class:'plan'}, a.in_oggi<=today() ? 'lo fai oggi' : 'lo fai ' + dueLabel(a.in_oggi)));
+  else if(a.scadenza && !done){ const n = diff(a.scadenza); meta.append(h('span',{class:n<0?'late':n===0?'today':null}, o.domani && n === 1 ? 'scadenza' + (a.scadenza_ora ? ' alle ' + a.scadenza_ora : '') : dueTxt(a))); }
+  if(!a.ogni_giorno && !done && a.in_oggi && !o.domani && !(route.view==='oggi' && a.in_oggi<=today())) meta.append(h('span',{class:'plan'}, a.in_oggi<=today() ? 'lo fai oggi' : 'lo fai ' + dueLabel(a.in_oggi)));
   const par = parentOf(a);
   if(par && !done && !o.inScad){ const n = diff(par.scadenza || today());
     meta.append(h('span',{class:'entro'+(n<0?' late':n===0?' today':'')}, 'Entro: ' + par.titolo + (par.scadenza ? ' · ' + dueTxt(par) : ''))); }
+  if(o.domani && a.in_oggi === addDays(today(),1) && a.ora_oggi) meta.prepend(h('span',{class:'ora'}, 'alle ' + a.ora_oggi));
   if(o.ora && a.ora_oggi && a.ora_oggi !== slotOf(a.ora_oggi)) meta.prepend(h('span',{class:'ora'}, a.ora_oggi));
   if(a.note) meta.append(h('span',null,'· nota'));
   if((a.allegati||[]).length) meta.append(h('span',{class:'att-n',title:'Immagini allegate'}, ICON_IMG(), a.allegati.length));
