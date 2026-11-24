@@ -167,7 +167,7 @@ function readHash(){
   else if(v === 'progetto' && id) route = {view:'progetto', id};
   else route = VIEWS.some(x=>x[0]===v) ? {view:v, id:null} : {view:'scrivania', id:null, desk:true};
 }
-addEventListener('hashchange', () => { const wasDesk = route.desk; tlScroll = null; readHash(); if(!(wasDesk && route.desk)) renderKeepScroll = false; ovScroll = 0; render(); renderKeepScroll = true; if(!route.desk || !wasDesk) scrollTo(0,0); });
+addEventListener('hashchange', () => { const wasDesk = route.desk; tlScroll = null; tlDomani = false; readHash(); if(!(wasDesk && route.desk)) renderKeepScroll = false; ovScroll = 0; render(); renderKeepScroll = true; if(!route.desk || !wasDesk) scrollTo(0,0); });
 
 /* ---------------- render ---------------- */
 const LABEL = Object.fromEntries(VIEWS);
@@ -360,11 +360,13 @@ addEventListener('click', e => { if(justDragged){ e.stopPropagation(); e.prevent
 function onDrop(a, where, idx, order){
   const td = today();
   if(where.startsWith('slot:')){
-    const t = where.slice(5), resta = a.in_oggi === td && a.ora_oggi && slotOf(a.ora_oggi) === t, ora = resta ? a.ora_oggi : t;
+    const g = tlDomani ? addDays(td, 1) : td, due = effDue(a);
+    if(tlDomani && due && due <= td){ toast('scade oggi: cambia la scadenza dalla scheda'); return; }
+    const t = where.slice(5), resta = a.in_oggi === g && a.ora_oggi && slotOf(a.ora_oggi) === t, ora = resta ? a.ora_oggi : t;
     const ids = order.filter(id => id !== a.id); ids.splice(idx, 0, a.id);
-    ids.forEach((id, i) => { const x = id === a.id ? {...a, in_oggi: td, ora_oggi: ora} : get('attivita', id);
+    ids.forEach((id, i) => { const x = id === a.id ? {...a, in_oggi: g, ora_oggi: ora} : get('attivita', id);
       if(x && (x.ordine !== (i+1) * 10 || id === a.id)) save('attivita', {...x, ordine: (i+1) * 10}); });
-    if(!resta) toast('alle ' + ora);
+    if(!resta) toast((tlDomani ? 'domani ' : '') + 'alle ' + ora);
   } else if(where === 'inbox'){
     const ids = order.filter(id => id !== a.id); ids.splice(idx, 0, a.id);
     ids.forEach((id, i) => {
@@ -376,7 +378,7 @@ function onDrop(a, where, idx, order){
     if(due && due <= td){ toast('scade oggi: cambia la scadenza dalla scheda'); return; }
     const ids = order.filter(id => id !== a.id); ids.splice(idx, 0, a.id);
     const era = a.in_oggi === tm;
-    ids.forEach((id, i) => { const x = id === a.id ? {...a, in_oggi: tm, ora_oggi: era ? a.ora_oggi : null} : get('attivita', id);
+    ids.forEach((id, i) => { const x = id === a.id ? {...a, in_oggi: tm, ora_oggi: era && !tlDomani ? a.ora_oggi : null} : get('attivita', id);
       if(x && (x.ordine !== (i+1)*10 || id === a.id)) save('attivita', {...x, ordine:(i+1)*10}); });
     if(!era) toast('rimandata a domani');
   } else if(where.startsWith('prj:')){
@@ -462,8 +464,11 @@ function vOggi(el){
   ib.append(ibList); left.append(ib);
   // domani: le cose segnate per domani; si trascinano qui per rimandarle, o da qui su oggi
   const tm = addDays(td, 1);
-  const evDom = eventi().filter(e => e.scadenza === tm).sort(sortA);
-  const dom = att().filter(a => !a.ogni_giorno && !a.fatta && !inToday(a) && !isWaiting(a) && (a.in_oggi === tm || effDue(a) === tm))
+  // quello che è già sulla timeline di domani non si ripete qui
+  const suTlDom = a => tlDomani && a.in_oggi === tm && a.ora_oggi;
+  const evDom = eventi().filter(e => e.scadenza === tm && !(tlDomani && e.scadenza_ora)).sort(sortA);
+  const domTimed = att().filter(a => !a.ogni_giorno && !a.fatta && !isWaiting(a) && a.in_oggi === tm && a.ora_oggi && !(effDue(a) && effDue(a) <= td));
+  const dom = att().filter(a => !a.ogni_giorno && !a.fatta && !inToday(a) && !isWaiting(a) && !suTlDom(a) && (a.in_oggi === tm || effDue(a) === tm))
     .sort((x, y) => ((x.ordine ?? 1e9) - (y.ordine ?? 1e9)) || cmpIt(x.ora_oggi, y.ora_oggi) || sortA(x, y));
   const dm = h('section',{class:'grp dom'},
     h('h2',null, h('span',{class:'t'},'domani'), dom.length ? h('span',{class:'n mono'}, String(dom.length)) : null,
@@ -480,24 +485,27 @@ function vOggi(el){
 
   const now = new Date(), nowSlot = pad(now.getHours())+':'+(now.getMinutes()<30?'00':'30');
   const tl = h('div',{class:'timeline'});
+  const tDay = tlDomani ? domTimed : timed, evDay = tlDomani ? eventi().filter(e => e.scadenza === tm) : evOggi;
   const fuori = t => slotOf(t) < ORE[0] ? ORE[0] : slotOf(t) > ORE[ORE.length-1] ? ORE[ORE.length-1] : slotOf(t);
   const nelSlot = (a, t) => fuori(a.ora_oggi) === t;
   ORE.forEach(t => {
-    const its = timed.filter(a => nelSlot(a, t)).sort((x, y) => ((x.ordine ?? 1e9) - (y.ordine ?? 1e9)) || cmpIt(x.ora_oggi, y.ora_oggi) || sortA(x, y));
-    const evs = evOggi.filter(e => e.scadenza_ora && (slotOf(e.scadenza_ora) === t || (t === ORE[0] && !ORE.includes(slotOf(e.scadenza_ora)))));
-    tl.append(h('div',{class:'slot'+(t.endsWith(':00')?' hr':'')+(t===nowSlot?' now':''),'data-drop':'slot:'+t,'data-sort':''},
+    const its = tDay.filter(a => nelSlot(a, t)).sort((x, y) => ((x.ordine ?? 1e9) - (y.ordine ?? 1e9)) || cmpIt(x.ora_oggi, y.ora_oggi) || sortA(x, y));
+    const evs = evDay.filter(e => e.scadenza_ora && (slotOf(e.scadenza_ora) === t || (t === ORE[0] && !ORE.includes(slotOf(e.scadenza_ora)))));
+    tl.append(h('div',{class:'slot'+(t.endsWith(':00')?' hr':'')+(t===nowSlot && !tlDomani?' now':''),'data-drop':'slot:'+t,'data-sort':''},
       h('div',{class:'slot-t mono'}, t.endsWith(':00') ? t : ''),
       h('div',{class:'slot-b'}, evs.map(e => h('div',{class:'tl-ev',style:catStyle(CATMAP[e.categoria]?e.categoria:'stu'),onclick:()=>sheetAttivita(e)},
           h('b',null, e.scadenza_ora), h('span',null, e.titolo), get('progetti',e.progetto_id) ? h('em',null, get('progetti',e.progetto_id).nome) : null)),
-        its.map(a => rowAtt(a, {drag:true, compact:true, ora:true})))));
+        its.map(a => rowAtt(a, {drag:true, compact:true, ora:true, domani:tlDomani})))));
   });
   const right = h('div',{class:'day-r'}, h('section',{class:'grp'},
-    h('h2',null, h('span',{class:'t'},'timeline'), h('span',{class:'n mono'}, String(timed.length)),
-      h('span',{class:'acts mono'}, now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}))), tl));
+    h('h2',null, h('span',{class:'t'},'timeline'), h('span',{class:'n mono'}, String(tDay.length)),
+      h('span',{class:'acts'}, h('div',{class:'seg tl-day'}, [['oggi', false], ['domani', true]].map(([l, v]) =>
+        h('button',{class: tlDomani === v ? 'on' : null, onclick:()=>{ if(tlDomani === v) return; tlDomani = v; tlScroll = null; render(); }}, l))))), tl));
   el.append(h('div',{class:'day'}, left, right));
   // la timeline resta dov'era; la prima volta si apre sull'ora attuale
   requestAnimationFrame(() => { if(tlScroll != null) tl.scrollTop = tlScroll;
-    else { const n = tl.querySelector('.slot.now'); if(n) tl.scrollTop = Math.max(0, n.offsetTop - 60); } });
+    else { const n = tl.querySelector('.slot.now') || (tlDomani && (tl.querySelector('.slot .dr, .slot .tl-ev') || {}).closest?.('.slot')) || tl.querySelector('[data-drop="slot:08:00"]');
+      if(n) tl.scrollTop = Math.max(0, n.offsetTop - 60); } });
 }
 
 /* ----- scrivania: la home, fatta di cartelle ----- */
@@ -608,7 +616,7 @@ function deskFolderInfo(){
     pratiche:{title:'Pratiche edilizie', color:'#DCEDF2', sub:'Pratiche'}, generali:{title:'Studio e generali', color:'#ffffff', sub:'Senza progetto'},
     fatte:{title:'Completate', color:'#f3f1ec', sub:'Storico'}})[route.view] || {title:LABEL[route.view]||'', color:'#fff', sub:''};
 }
-let ovScroll = 0, tlScroll = null;
+let ovScroll = 0, tlScroll = null, tlDomani = false;
 let showInfo = false;
 function closeDesk(){ showInfo = false; location.hash = '#scrivania'; }
 function deskOverlay(){
@@ -1137,7 +1145,7 @@ function rowAtt(a, o={}){
   const par = parentOf(a);
   if(par && !done && !o.inScad){ const n = diff(par.scadenza || today());
     meta.append(h('span',{class:'entro'+(n<0?' late':n===0?' today':'')}, 'Entro: ' + par.titolo + (par.scadenza ? ' · ' + dueTxt(par) : ''))); }
-  if(o.domani && a.in_oggi === addDays(today(),1) && a.ora_oggi) meta.prepend(h('span',{class:'ora'}, 'alle ' + a.ora_oggi));
+  if(o.domani && !o.ora && a.in_oggi === addDays(today(),1) && a.ora_oggi) meta.prepend(h('span',{class:'ora'}, 'alle ' + a.ora_oggi));
   if(o.ora && a.ora_oggi && a.ora_oggi !== slotOf(a.ora_oggi)) meta.prepend(h('span',{class:'ora'}, a.ora_oggi));
   if(a.note) meta.append(h('span',null,'· nota'));
   if((a.allegati||[]).length) meta.append(h('span',{class:'att-n',title:'Immagini allegate'}, ICON_IMG(), a.allegati.length));

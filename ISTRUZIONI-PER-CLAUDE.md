@@ -139,3 +139,7 @@ Regola per chi modifica: mantenere un solo `app.js` senza compilazione, aggiorna
 - `onDrop('domani')`: mette `in_oggi` = domani, toglie l'orario (lo tiene se era già di domani), riordina con `ordine`. Se scade oggi o prima non si rimanda (toast).
 - Da "Domani" verso "Da sistemare" o la timeline: la logica esistente la riporta a oggi.
 - `rowAtt(a,{domani:true})`: niente "lo fai domani" (ridondante), mostra "alle HH:MM" se pianificata con orario e "Scadenza" al posto di "Domani".
+
+### Timeline di domani
+- Interruttore `.seg.tl-day` (Oggi | Domani) nell'intestazione della timeline; stato `tlDomani` (torna a oggi quando si cambia pagina).
+- Con Domani: la timeline mostra le cose con `in_oggi` = domani e un orario, più gli appuntamenti di domani con orario; trascinare su una fascia mette `in_oggi` = domani (`onDrop` slot usa il giorno della timeline). Ciò che è sulla timeline di domani non si ripete nella lista "Domani" a sinistra.
